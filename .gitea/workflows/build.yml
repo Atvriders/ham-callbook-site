@@ -10,6 +10,7 @@ env:
   IMAGE_OWNER: atvriders
   IMAGE_BACKEND: ham-callbook-backend
   IMAGE_FRONTEND: ham-callbook-frontend
+  IMAGE_CADDY: ham-callbook-caddy
 
 jobs:
   docker-compose-build:
@@ -46,6 +47,15 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_FRONTEND }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_FRONTEND }}:${{ gitea.sha }}
 
+      - name: Build & push caddy image (Caddyfile baked in)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./caddy
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_CADDY }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_CADDY }}:${{ gitea.sha }}
+
       - name: Validate docker-compose.yml
         run: docker compose -f docker-compose.yml config
 
@@ -53,3 +63,4 @@ jobs:
         run: |
           echo "Backend:  ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_BACKEND }}:latest"
           echo "Frontend: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_FRONTEND }}:latest"
+          echo "Caddy:    ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_CADDY }}:latest"

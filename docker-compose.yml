@@ -25,12 +25,11 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2-alpine
+    image: git.waterburp.com/atvriders/ham-callbook-caddy:${TAG:-latest}
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
