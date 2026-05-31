@@ -289,7 +289,7 @@ export function cleanOCRCity(
   // return that match. This catches the worst multi-line address bleeds where
   // the parser packed an entire mailing address into the city column.
   if (s.split(".").length >= 3) {
-    const first = s.split(".")[0].trim();
+    const first = (s.split(".")[0] ?? "").trim();
     if (first.length >= 3 && /[A-Za-z]/.test(first)) {
       const match = fuzzyMatchCity(first, state);
       if (match) return match;

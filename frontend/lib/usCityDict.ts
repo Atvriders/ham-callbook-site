@@ -5,15 +5,20 @@ const cityDict = dict as unknown as CityDict;
 // Build a per-state Set of lowercase city names for O(1) membership tests.
 const lowerCities: Record<string, Set<string>> = {};
 for (const st of Object.keys(cityDict)) {
-  lowerCities[st] = new Set(cityDict[st].map(([c]) => c.toLowerCase()));
+  const entries = cityDict[st] ?? [];
+  lowerCities[st] = new Set(entries.map(([c]) => c.toLowerCase()));
 }
 export function isKnownCity(city: string, state?: string | null): boolean {
   if (!city) return false;
   const lc = city.trim().toLowerCase();
-  if (state && lowerCities[state.toUpperCase()]) return lowerCities[state.toUpperCase()].has(lc);
+  if (state) {
+    const set = lowerCities[state.toUpperCase()];
+    if (set) return set.has(lc);
+  }
   // search any state
   for (const st of Object.keys(lowerCities)) {
-    if (lowerCities[st].has(lc)) return true;
+    const set = lowerCities[st];
+    if (set && set.has(lc)) return true;
   }
   return false;
 }
@@ -39,17 +44,17 @@ function levenshtein(a: string, b: string): number {
   const la = a.length, lb = b.length;
   const dp: number[] = Array(lb + 1).fill(0).map((_, i) => i);
   for (let i = 1; i <= la; i++) {
-    let prev = dp[0];
+    let prev = dp[0] ?? 0;
     dp[0] = i;
     for (let j = 1; j <= lb; j++) {
-      const tmp = dp[j];
+      const tmp = dp[j] ?? 0;
       dp[j] = a[i - 1] === b[j - 1]
         ? prev
-        : 1 + Math.min(prev, dp[j], dp[j - 1]);
+        : 1 + Math.min(prev, dp[j] ?? 0, dp[j - 1] ?? 0);
       prev = tmp;
     }
   }
-  return dp[lb];
+  return dp[lb] ?? 0;
 }
 
 function within2(a: string, b: string): boolean {
