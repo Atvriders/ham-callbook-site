@@ -1,13 +1,15 @@
+# Production-style compose: pulls pre-built images from Gitea container registry.
+# For local dev with source rebuilds, use docker-compose.dev.yml.
 services:
   backend:
-    build:
-      context: ./backend
+    image: git.waterburp.com/atvriders/ham-callbook-backend:${TAG:-latest}
     environment:
       DB_PATH: /data/USA_Ham_Callbooks.sqlite
+      ULS_JSON_PATH: /data/uls.json
     volumes:
       - ./data:/data:ro
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -15,8 +17,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
+    image: git.waterburp.com/atvriders/ham-callbook-frontend:${TAG:-latest}
     environment:
       NEXT_PUBLIC_API_BASE: /api
     depends_on:

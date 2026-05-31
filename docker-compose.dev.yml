@@ -1,0 +1,11 @@
+# Dev override — builds images from local sources instead of pulling.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  backend:
+    image: ham-callbook-backend:dev
+    build:
+      context: ./backend
+  frontend:
+    image: ham-callbook-frontend:dev
+    build:
+      context: ./frontend
