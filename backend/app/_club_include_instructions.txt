@@ -1,0 +1,5 @@
+To wire club routes, add to app/main.py (the integration closure will do this):
+from app.routes import clubs, club, callsign_club
+app.include_router(clubs.router)
+app.include_router(club.router)
+app.include_router(callsign_club.router)

@@ -1,0 +1,41 @@
+# Large data artifacts — must be sourced separately, not from git
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/*.sqlite.bak*
+data/uls.json
+data/uls.json.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+backend/.venv/
+.venv/
+
+# Node / Next
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.npm/
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
+
+# Backups + logs
+*.bak
+*.bak.*
+*.log
+/tmp/

@@ -1,0 +1,5 @@
+After both workflows finish, the closure pass should:
+1. Add to Nav.tsx links: { href: '/clubs', label: 'Clubs' }
+2. Add to home page (app/page.tsx) explore tiles: a new tile 'Clubs' linking to /clubs.
+3. Update SearchBar to also call /api/clubs/search?q={q}&limit=3 in parallel with /api/suggest and merge suggestions with a kind:'club' marker.
+4. Update callsign detail page (app/callsign/[cs]/page.tsx) to call /api/callsign/{cs}/club and render ClubBadge near the hero if is_club is true.

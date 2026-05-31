@@ -1,0 +1,588 @@
+/* ---------------------------------------------------------------------------
+   Sodium Vapor — global stylesheet for ham-callbook-site.
+
+   Locked palette: midnight #0a0e1a + sodium amber #ffa30b + bone cream #f5ecd9.
+   This file is intentionally opinionated. Do NOT add purple. Do NOT add Inter.
+   Decorative motifs (scanlines, grain, morse dividers, amber glow) are part
+   of the visual contract, not optional polish.
+   --------------------------------------------------------------------------- */
+
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   1. Design tokens — single source of truth, mirrored from lib/design.ts.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Color — Sodium Vapor palette (LOCKED) */
+  --color-bg: #0a0e1a;
+  --color-bg-warm: #121524;        /* deep midnight with a hair of warmth */
+  --color-surface: #131a2d;
+  --color-surface-2: #18203a;      /* one step brighter for raised cards */
+  --color-border: #2a3349;
+  --color-border-warm: #3a3a4d;    /* used for amber-leaning hairlines */
+  --color-text: #f5ecd9;
+  --color-text-dim: #a8b0c3;
+  --color-text-mute: #6f7891;
+  --color-accent: #ffa30b;         /* sodium amber */
+  --color-accent-2: #c97e08;       /* burnt amber */
+  --color-accent-3: #8a5408;       /* deep filament */
+  --color-glow: #ffd166;           /* halo */
+  --color-danger: #ff5555;
+  --color-success: #5dd3a8;
+
+  /* RGB triplets for translucent overlays (no relying on color-mix). */
+  --rgb-accent: 255, 163, 11;
+  --rgb-glow: 255, 209, 102;
+  --rgb-text: 245, 236, 217;
+  --rgb-bg: 10, 14, 26;
+
+  /* Typography — bound at runtime from next/font/google in layout.tsx.
+     The variable assignments below are fallbacks so SSR doesn't FOUT-flash
+     into Times New Roman before next/font hydration completes. */
+  --font-display: "Fraunces", "Iowan Old Style", "Apple Garamond", Baskerville,
+    "Times New Roman", ui-serif, serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", ui-monospace, monospace;
+  --font-body: "Geist Sans", "Geist", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, system-ui, sans-serif;
+
+  /* Motif tuning — kept in CSS so individual components can override via
+     style props without re-importing the design constants. */
+  --scanline-opacity: 0.08;
+  --scanline-spacing: 3px;
+  --grain-opacity: 0.06;
+  --twr-pulse-ms: 1400ms;
+
+  /* Editorial rhythm — used by .editorial-h1/.editorial-h2 and stat blocks. */
+  --opsz-display: 144;
+  --opsz-headline: 96;
+  --opsz-subhead: 48;
+  --opsz-body: 14;
+}
+
+/* Tailwind v4 inline theme — exposes the variables above as utilities
+   (`bg-bg`, `text-accent`, `font-display`, etc). */
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-bg-warm: var(--color-bg-warm);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-border: var(--color-border);
+  --color-border-warm: var(--color-border-warm);
+  --color-text: var(--color-text);
+  --color-text-dim: var(--color-text-dim);
+  --color-text-mute: var(--color-text-mute);
+  --color-accent: var(--color-accent);
+  --color-accent-2: var(--color-accent-2);
+  --color-accent-3: var(--color-accent-3);
+  --color-glow: var(--color-glow);
+  --color-danger: var(--color-danger);
+  --color-success: var(--color-success);
+
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-body: var(--font-body);
+}
+
+/* ---------------------------------------------------------------------------
+   2. Base layer — body, selection, focus rings, scrollbar.
+   --------------------------------------------------------------------------- */
+
+html {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11", "ss03"; /* Fraunces stylistic sets */
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  background-color: var(--color-bg);
+  /* Slow ambient body gradient — deep midnight at center, warmer toward the
+     top and bottom-right corners where the sodium filament "burns" through. */
+  background-image:
+    radial-gradient(
+      ellipse 85% 60% at 50% -10%,
+      rgba(var(--rgb-accent), 0.09),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 100% 105%,
+      rgba(201, 126, 8, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 0% 100%,
+      rgba(138, 84, 8, 0.05),
+      transparent 65%
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-bg) 0%,
+      var(--color-bg-warm) 50%,
+      var(--color-bg) 100%
+    );
+  background-attachment: fixed;
+  position: relative;
+  animation: ambient-drift 32s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift {
+  0%   { background-position: 0 0, 100% 100%, 0 100%, 0 0; }
+  100% { background-position: 0 2%, 98% 98%, 2% 100%, 0 0; }
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.96  0 0 0 0 0.84  0 0 0 0 0.54  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+  mix-blend-mode: overlay;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  text-shadow: none;
+}
+::-moz-selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  text-shadow: none;
+}
+
+/* Amber thumb on midnight track — explicit, branded scrollbar. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+  border-left: 1px solid var(--color-border);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    var(--color-accent-2) 0%,
+    var(--color-accent) 50%,
+    var(--color-accent-3) 100%
+  );
+  border-radius: 0;
+  border: 2px solid var(--color-bg);
+  box-shadow: inset 0 0 4px rgba(var(--rgb-glow), 0.3);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-glow);
+  box-shadow: inset 0 0 6px rgba(var(--rgb-glow), 0.6);
+}
+::-webkit-scrollbar-corner {
+  background: var(--color-bg);
+}
+/* Firefox */
+* {
+  scrollbar-color: var(--color-accent-2) var(--color-bg);
+  scrollbar-width: thin;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+  transition: color 120ms linear, text-shadow 120ms linear;
+}
+a:hover {
+  color: var(--color-glow);
+  text-decoration: underline;
+  text-shadow: 0 0 12px rgba(var(--rgb-glow), 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+   3. Decorative utilities — Sodium Vapor motifs.
+   --------------------------------------------------------------------------- */
+
+/* CRT horizontal scanlines. Apply to a relative-positioned hero container;
+   the lines render in a ::after pseudo-element so content stays selectable. */
+.scanlines {
+  position: relative;
+  isolation: isolate;
+}
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(var(--rgb-accent), var(--scanline-opacity)) 0,
+    rgba(var(--rgb-accent), var(--scanline-opacity)) 1px,
+    transparent 1px,
+    transparent var(--scanline-spacing)
+  );
+  mix-blend-mode: overlay;
+  animation: scan-drift 8s linear infinite;
+}
+
+@keyframes scan-drift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 var(--scanline-spacing);
+  }
+}
+
+/* Standalone grain layer — useful inside cards/panels that need their own
+   warmth, independent of the page-level body::before grain. */
+.grain {
+  position: relative;
+}
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.88  0 0 0 0 0.6  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+}
+
+/* Amber sodium-vapor glow on text. Layered text-shadow gives the halo. */
+.amber-glow {
+  color: var(--color-accent);
+  text-shadow:
+    0 0 4px rgba(var(--rgb-accent), 0.9),
+    0 0 8px rgba(var(--rgb-glow), 0.6),
+    0 0 24px rgba(var(--rgb-accent), 0.35);
+}
+
+.amber-glow-soft {
+  text-shadow:
+    0 0 8px rgba(var(--rgb-glow), 0.35),
+    0 0 1px rgba(var(--rgb-accent), 0.6);
+}
+
+/* Morse-code dashes used as decorative dividers. Drop into the DOM as a
+   <hr class="morse-divider"> or <div class="morse-divider" aria-hidden /> */
+.morse-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  color: var(--color-text-dim);
+  letter-spacing: 0.35em;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  border: 0;
+  height: auto;
+  padding: 0.75rem 0;
+  opacity: 0.7;
+  user-select: none;
+}
+.morse-divider::before {
+  content: "·  —  ·  ·  —  ·  ·  ·  —  —  ·";
+  white-space: pre;
+}
+
+/* Tighter inline morse separator for headings (e.g. "ARCHIVE · — · CALLBOOKS"). */
+.morse-inline::before {
+  content: " · — · ";
+  color: var(--color-accent-2);
+  letter-spacing: 0.25em;
+  font-family: var(--font-mono);
+  padding: 0 0.6em;
+}
+
+/* CRT frame — a TV-tube style enclosure with rounded outer corners, an
+   inset shadow vignette, and a single hairline scanline overlay.
+   Use on hero panels, map containers, oscilloscope blocks, etc. */
+.crt-frame {
+  position: relative;
+  isolation: isolate;
+  border-radius: 18px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--rgb-accent), 0.08),
+    inset 0 0 48px rgba(0, 0, 0, 0.55),
+    inset 0 0 120px rgba(0, 0, 0, 0.35),
+    0 24px 60px -28px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+.crt-frame::before {
+  /* Subtle screen-curvature vignette — radial darkening at the corners. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(
+    ellipse 110% 110% at 50% 50%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+.crt-frame::after {
+  /* Tiny scanline overlay — finer than .scanlines, baked in. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(var(--rgb-text), 0.05) 0,
+    rgba(var(--rgb-text), 0.05) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Tube band — a tuned-radio dial gradient strip. Sits behind dial numbers
+   or section dividers. Renders as a thin horizontal band by default. */
+.tube-band {
+  position: relative;
+  height: 22px;
+  border-top: 1px solid var(--color-border-warm);
+  border-bottom: 1px solid var(--color-border-warm);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.5) 0%,
+      rgba(var(--rgb-accent), 0.18) 25%,
+      rgba(var(--rgb-glow), 0.32) 50%,
+      rgba(var(--rgb-accent), 0.18) 75%,
+      rgba(0, 0, 0, 0.5) 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 11px,
+      rgba(var(--rgb-text), 0.18) 11px,
+      rgba(var(--rgb-text), 0.18) 12px
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(var(--rgb-glow), 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 0 18px rgba(var(--rgb-accent), 0.18);
+}
+.tube-band--tall {
+  height: 38px;
+}
+
+/* ---------------------------------------------------------------------------
+   4. Editorial typography classes.
+   --------------------------------------------------------------------------- */
+
+/* Editorial h1 — Fraunces with maximum optical-size drama. Use for hero
+   titles and standalone page-defining lines. */
+.editorial-h1 {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" var(--opsz-display), "SOFT" 100, "WONK" 1;
+  font-weight: 700;
+  font-size: clamp(2.75rem, 6.5vw, 5.75rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  color: var(--color-text);
+  font-feature-settings: "ss01", "ss03", "cv11", "dlig";
+}
+
+/* Editorial h2 — slightly smaller opsz so the curves read at section scale. */
+.editorial-h2 {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" var(--opsz-headline), "SOFT" 50, "WONK" 0;
+  font-weight: 600;
+  font-size: clamp(1.75rem, 3.5vw, 3rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+/* Editorial h3 — subhead, gentle Fraunces, used inside cards. */
+.editorial-h3 {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" var(--opsz-subhead);
+  font-weight: 500;
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+/* Eyebrow — small caps mono, dim. Sits above editorial headings. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* Mono callsign — JetBrains Mono, wide tracking, amber, optional glow.
+   Add .mono-call--glow for the featured/hovered variant. */
+.mono-call {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  font-variant-ligatures: none;
+  font-feature-settings: "zero", "ss01";
+}
+.mono-call--glow,
+.mono-call:hover {
+  color: var(--color-glow);
+  text-shadow:
+    0 0 4px rgba(var(--rgb-accent), 0.9),
+    0 0 8px rgba(var(--rgb-glow), 0.6),
+    0 0 24px rgba(var(--rgb-accent), 0.35);
+}
+
+/* Legacy alias — older components still reference .callsign. */
+.callsign {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-ligatures: none;
+}
+
+/* Hero callsign display — Fraunces variable optical sizing pushed to 144
+   for maximum drama, then layered with the amber glow. */
+.callsign-hero {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.88;
+  color: var(--color-accent);
+  text-shadow:
+    0 0 2px rgba(var(--rgb-accent), 0.9),
+    0 0 18px rgba(var(--rgb-glow), 0.6),
+    0 0 56px rgba(var(--rgb-accent), 0.35);
+}
+
+/* Stat number — Fraunces with opsz 12 for the compressed condensed feel of
+   a tall stat display. Tabular figures so columns align. */
+.stat-num {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 12, "SOFT" 0, "WONK" 0;
+  font-weight: 600;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.stat-num--amber {
+  color: var(--color-accent);
+  text-shadow:
+    0 0 4px rgba(var(--rgb-accent), 0.6),
+    0 0 24px rgba(var(--rgb-glow), 0.25);
+}
+
+/* Stat label — paired with .stat-num. */
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-text-mute);
+}
+
+/* Data-table hairline — used on every <td>/<th> of tabular data. */
+.data-table-hairline {
+  border: 1px solid var(--color-border);
+}
+.data-table-hairline th,
+.data-table-hairline td {
+  border: 1px solid var(--color-border);
+  padding: 0.55rem 0.85rem;
+}
+.data-table-hairline th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  text-align: left;
+  background: rgba(var(--rgb-accent), 0.04);
+}
+.data-table-hairline tbody tr:hover td {
+  background: rgba(var(--rgb-accent), 0.05);
+}
+
+/* TWR (transmit-receive) status dot. Rendered with .twr-dot, pulses via
+   the tailwind animate-twr-pulse keyframes defined in tailwind.config.ts. */
+.twr-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px 1px rgba(var(--rgb-glow), 0.6);
+  animation: twr-pulse var(--twr-pulse-ms) ease-in-out infinite alternate;
+}
+
+@keyframes twr-pulse {
+  0% {
+    opacity: 0.4;
+    box-shadow: 0 0 0 0 rgba(var(--rgb-glow), 0);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 16px 2px rgba(var(--rgb-glow), 0.7);
+  }
+}
+
+/* Editorial card — bone-cream on midnight, with the amber-inset border. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow:
+    0 0 0 1px rgba(var(--rgb-accent), 0),
+    0 12px 40px -16px rgba(0, 0, 0, 0.6);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.card:hover {
+  border-color: rgba(var(--rgb-accent), 0.4);
+  box-shadow:
+    0 0 0 1px rgba(var(--rgb-accent), 0.2),
+    0 18px 50px -16px rgba(var(--rgb-accent), 0.18);
+  /* Translate is deliberately small — we never do scale-105. */
+  transform: translateY(-1px);
+}
+
+/* Z-index discipline — keep the grain at 1, scanlines at 2, content at 10. */
+main, header, footer, nav {
+  position: relative;
+  z-index: 10;
+}
+
+/* Reduced motion — respect user preference, kill the slow drifts. */
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .scanlines::after,
+  .twr-dot {
+    animation: none !important;
+  }
+}

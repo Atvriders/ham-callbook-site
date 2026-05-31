@@ -1,0 +1,29 @@
+{
+	# Global options
+	auto_https off
+}
+
+:80 {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy http://backend:8000
+	}
+
+	handle {
+		reverse_proxy http://frontend:3000
+	}
+}
+
+localhost {
+	tls internal
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy http://backend:8000
+	}
+
+	handle {
+		reverse_proxy http://frontend:3000
+	}
+}
