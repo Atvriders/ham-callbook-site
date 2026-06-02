@@ -467,6 +467,8 @@ def get_integrity(con: sqlite3.Connection = Depends(get_db)) -> IntegrityRespons
     if cached is not None:
         return cached
 
+    if not _table_exists(con, "xref_2way_summary"):
+        return {"not_built": True}
     xref_rows = con.execute(
         "SELECT edition, second_source, a_entries, b_entries, overlap_pct, "
         "       agree, conflicts, corrected, status "
@@ -487,6 +489,8 @@ def get_integrity(con: sqlite3.Connection = Depends(get_db)) -> IntegrityRespons
         for r in xref_rows
     ]
 
+    if not _table_exists(con, "sample_audit"):
+        return {"not_built": True}
     audit_rows = con.execute(
         "SELECT edition, examined, real_data_errors, ocr_noise_both, address_bleed, "
         "       format_truncation, other, estimated_true_accuracy_pct, confidence, notes "
@@ -508,6 +512,8 @@ def get_integrity(con: sqlite3.Connection = Depends(get_db)) -> IntegrityRespons
         for r in audit_rows
     ]
 
+    if not _table_exists(con, "sample_confidence"):
+        return {"not_built": True}
     sc_rows = con.execute(
         "SELECT edition, sample_pages, c_callsigns, a_entries, b_entries, "
         "       common_ac, ac_strict_pct, ac_fuzzy_pct, "
@@ -544,6 +550,8 @@ def get_integrity(con: sqlite3.Connection = Depends(get_db)) -> IntegrityRespons
         for a in sample_audits
         if a.estimated_true_accuracy_pct is not None
     ]
+    if not _table_exists(con, "corrections_3way"):
+        return {"not_built": True}
     corrections_total = int(
         con.execute("SELECT COUNT(*) FROM corrections_3way").fetchone()[0]
     )

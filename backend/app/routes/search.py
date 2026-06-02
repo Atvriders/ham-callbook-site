@@ -39,10 +39,7 @@ from pydantic import BaseModel, Field
 # DB connection (thread-local, read-only).
 # ---------------------------------------------------------------------------
 
-DB_PATH = os.environ.get(
-    "HAM_DB_PATH",
-    "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite",
-)
+DB_PATH = os.environ.get("HAM_DB_PATH") or os.environ.get("DB_PATH", "/data/USA_Ham_Callbooks.sqlite")
 
 _LOCAL = threading.local()
 

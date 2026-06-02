@@ -35,26 +35,22 @@ router = APIRouter(prefix="/api", tags=["year"])
 # Database access
 # ---------------------------------------------------------------------------
 
-# Search a couple of likely locations so the same module works both inside the
-# Docker container (where ``/data`` is the canonical mount) and when running
-# the backend directly from the repo for local development.
-_DB_CANDIDATES = (
-    os.environ.get("CALLBOOK_DB"),
-    "/data/USA_Ham_Callbooks.sqlite",
-    "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite",
-    "/home/kasm-user/leehite-callbooks/USA_Ham_Callbooks.sqlite",
+_DB_PATH = (
+    os.environ.get("HAM_DB_PATH")
+    or os.environ.get("DB_PATH")
+    or "/data/USA_Ham_Callbooks.sqlite"
 )
 
 _local = threading.local()
 
 
 def _resolve_db_path() -> str:
-    for path in _DB_CANDIDATES:
-        if path and os.path.exists(path):
-            return path
-    raise RuntimeError(
-        "USA_Ham_Callbooks.sqlite not found in any expected location"
-    )
+    if not os.path.exists(_DB_PATH):
+        raise RuntimeError(
+            f"/data/USA_Ham_Callbooks.sqlite not found (resolved to {_DB_PATH!r}). "
+            "Ensure the DB volume is mounted and DB_PATH is set correctly."
+        )
+    return _DB_PATH
 
 
 def _get_conn() -> sqlite3.Connection:

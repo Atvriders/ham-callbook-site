@@ -44,16 +44,19 @@ from pydantic import BaseModel, Field
 try:  # pragma: no cover — exercised once app.db lands
     from app.db import get_db  # type: ignore[no-redef]
 except Exception:  # ImportError or AttributeError during partial builds
-    _DB_PATH = os.environ.get(
-        "CALLBOOK_DB_PATH",
-        "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite",
+    _DB_PATH = (
+        os.environ.get("HAM_DB_PATH")
+        or os.environ.get("DB_PATH")
+        or "/data/USA_Ham_Callbooks.sqlite"
     )
 
     @lru_cache(maxsize=1)
     def _open_ro() -> sqlite3.Connection:
-        # SQLite read-only URI keeps the FastAPI worker from ever mutating
-        # the 2.4 GB archive. check_same_thread=False is safe because we
-        # only issue read queries on a per-request basis via a generator.
+        if not os.path.exists(_DB_PATH):
+            raise RuntimeError(
+                f"/data/USA_Ham_Callbooks.sqlite not found (resolved to {_DB_PATH!r}). "
+                "Ensure the DB volume is mounted and DB_PATH is set correctly."
+            )
         uri = f"file:{_DB_PATH}?mode=ro&immutable=1"
         conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
         conn.row_factory = sqlite3.Row
