@@ -42,7 +42,10 @@ import { USMap } from "./USMap";
  * landing stat warm without thrashing the DB on each page hit.
  */
 async function fetchStats(): Promise<StatsResponse | null> {
-  const base = process.env.API_BASE ?? "http://api:8000";
+  // SSR fetch hits the backend service directly inside the docker network.
+  // The compose service is named `backend` (not `api`); allow override via
+  // INTERNAL_API_BASE for non-Docker setups.
+  const base = process.env.INTERNAL_API_BASE ?? "http://backend:8000";
   try {
     const res = await fetch(`${base}/api/stats`, {
       next: { revalidate: 60 },
