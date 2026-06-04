@@ -8,6 +8,7 @@
  */
 
 import { fuzzyMatchCity } from './usCityDict';
+import { fuzzyMatchFirstName, fuzzyMatchLastName } from './usNameDict';
 
 // ---------------------------------------------------------------------------
 // US state/territory code set used by cleanOCRState and cleanOCRCity.
@@ -151,8 +152,129 @@ export function removeInfixTildes(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// 1. cleanOCRName
+// Name dictionary correction helper (used by cleanOCRName internals)
 // ---------------------------------------------------------------------------
+
+/**
+ * Given a cleaned name string, attempt to correct the first and last alpha
+ * tokens via the ULS name dictionary (fuzzy, up to 2 edits).
+ *
+ * Rules:
+ *  - Only tokens that START with an uppercase letter are eligible for
+ *    correction — a lowercase-starting token indicates a leading-char OCR drop
+ *    (e.g. "homas") and is left as-is (the caller marks it low-confidence).
+ *  - Middle tokens (initials, particles like "M", "de", "St") are preserved.
+ *  - Returns { corrected: string; matched: boolean } where `matched` is true
+ *    only if BOTH the first and last tokens were found in the dictionary.
+ *
+ * @param s   Already-cleaned name string (title-cased tokens, spaces between).
+ * @param state  Optional 2-char US state code for state-scoped last-name lookup.
+ */
+function applyNameDictCorrection(
+  s: string,
+  state?: string | null,
+): { corrected: string; matched: boolean } {
+  const tokens = s.split(/\s+/).filter(Boolean);
+
+  // Need at least 2 alpha tokens to attempt correction.
+  const alphaTokens = tokens.filter((t) => /[A-Za-z]{2,}/.test(t));
+  if (alphaTokens.length < 2) return { corrected: s, matched: false };
+
+  // Identify the first and last alpha-word token positions.
+  let firstIdx = -1;
+  let lastIdx = -1;
+  for (let i = 0; i < tokens.length; i++) {
+    if (/[A-Za-z]{2,}/.test(tokens[i]!)) {
+      if (firstIdx === -1) firstIdx = i;
+      lastIdx = i;
+    }
+  }
+  if (firstIdx === -1 || lastIdx === -1 || firstIdx === lastIdx) {
+    return { corrected: s, matched: false };
+  }
+
+  const firstTok = tokens[firstIdx]!;
+  const lastTok = tokens[lastIdx]!;
+
+  // Only correct tokens that start uppercase (title-cased by cleanOCRName).
+  const firstStartsUpper =
+    firstTok.length > 0 &&
+    firstTok[0] === firstTok[0]!.toUpperCase() &&
+    firstTok[0] !== firstTok[0]!.toLowerCase();
+  const lastStartsUpper =
+    lastTok.length > 0 &&
+    lastTok[0] === lastTok[0]!.toUpperCase() &&
+    lastTok[0] !== lastTok[0]!.toLowerCase();
+
+  let correctedFirst: string | null = null;
+  let correctedLast: string | null = null;
+
+  if (firstStartsUpper) {
+    const candidate = fuzzyMatchFirstName(firstTok);
+    // Sanity guards: the candidate must (a) share the same first letter as the
+    // input (same anchor check that usNameDict uses for 1-edit, extended to all
+    // match tiers to block prefix-drop false positives like "Mc8onald"→"Donald")
+    // and (b) not be more than 1 character shorter than the input (prevents the
+    // edit budget being spent entirely on dropping a prefix).
+    if (
+      candidate !== null &&
+      candidate[0]?.toLowerCase() === firstTok[0]?.toLowerCase() &&
+      candidate.length >= firstTok.length - 1
+    ) {
+      correctedFirst = candidate;
+    }
+  }
+  if (lastStartsUpper) {
+    const candidate = fuzzyMatchLastName(lastTok, state);
+    if (
+      candidate !== null &&
+      candidate[0]?.toLowerCase() === lastTok[0]?.toLowerCase() &&
+      candidate.length >= lastTok.length - 1
+    ) {
+      correctedLast = candidate;
+    }
+  }
+
+  // Apply corrections only when a match was found.
+  if (correctedFirst !== null) tokens[firstIdx] = correctedFirst;
+  if (correctedLast !== null) tokens[lastIdx] = correctedLast;
+
+  const matched = correctedFirst !== null && correctedLast !== null;
+  return { corrected: tokens.join(" "), matched };
+}
+
+// ---------------------------------------------------------------------------
+// 1. cleanOCRName  (and confidence-bearing variant)
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of cleanOCRNameWithConfidence.
+ *
+ * confidence:
+ *   'high'  — both first and last tokens matched the ULS name dictionary
+ *             (fuzzy, up to 2 edits).
+ *   'low'   — one or both tokens were unrecognised OR a token started with a
+ *             lowercase letter (likely OCR leading-char drop), so we cannot
+ *             confirm the name is correct.
+ */
+export type OcrNameResult = { name: string; confidence: 'high' | 'low' };
+
+/**
+ * Like cleanOCRName but also returns a confidence rating based on whether the
+ * result matched the ULS name dictionary.
+ *
+ * @param state  Optional 2-char US state code (improves last-name lookup precision).
+ */
+export function cleanOCRNameWithConfidence(
+  name: string | null | undefined,
+  year?: number | null,
+  state?: string | null,
+): OcrNameResult {
+  const cleaned = cleanOCRName(name, year);
+  if (!cleaned) return { name: "", confidence: 'low' };
+  const { corrected, matched } = applyNameDictCorrection(cleaned, state);
+  return { name: corrected, confidence: matched ? 'high' : 'low' };
+}
 
 /**
  * Clean an operator or club name string, collapsing OCR noise and spaced-out letters.
