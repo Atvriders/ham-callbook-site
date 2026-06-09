@@ -28,7 +28,10 @@ import sqlite3
 import unicodedata
 from collections import Counter, defaultdict
 
-DB_PATH = "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite"
+# Honor HAM_DB_PATH > DB_PATH > the site default (same pattern as
+# build_data_layer.py — see that script for the rationale).
+DB_PATH = os.environ.get("HAM_DB_PATH") or os.environ.get("DB_PATH") \
+    or "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite"
 
 # --------------------------------------------------------------------------------------
 # Club pattern detection

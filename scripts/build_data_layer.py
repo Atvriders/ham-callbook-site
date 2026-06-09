@@ -22,7 +22,12 @@ import sqlite3
 import sys
 import time
 
-DB_PATH = "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite"
+# Honor HAM_DB_PATH > DB_PATH > the historical site default. This lets
+# build_sqlite.py target the leehite-side artifact, so the build completes a
+# fully-baked DB before any cp. Without this, a partial-cp / WAL-collision
+# corrupts the live site DB on rebuild (we hit this on 2026-06-09).
+DB_PATH = os.environ.get("HAM_DB_PATH") or os.environ.get("DB_PATH") \
+    or "/home/kasm-user/ham-callbook-site/data/USA_Ham_Callbooks.sqlite"
 
 # US state / DC / territory centroids.  Source: NOAA / USGS state-centroid
 # tables, rounded to 4 decimals (sufficient for map starting positions).
