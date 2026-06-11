@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     template: "%s — US Ham Callbook Archive",
   },
   description:
-    "A searchable archive of US amateur radio callbooks, OCR'd, FCC ULS anchored, and cross-referenced across editions.",
+    "US amateur radio license records, 1909 to present — 7.4M historic callbook entries fused with weekly-refreshed FCC ULS data. Callsign history, operator lineage, club timelines.",
   applicationName: "US Ham Callbook Archive",
   keywords: [
     "ham radio",
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "US Ham Callbook Archive",
     description:
-      "Decade-spanning OCR'd callbook search with FCC ULS anchoring.",
+      "US ham radio license records, 1909 to present — historic callbooks fused with live FCC data.",
     type: "website",
   },
   twitter: {
