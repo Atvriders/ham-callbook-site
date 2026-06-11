@@ -4,7 +4,7 @@
   "private": true,
   "description": "Sodium Vapor — US ham radio callbook archive frontend (Next.js 15 App Router).",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3017",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
