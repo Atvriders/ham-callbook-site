@@ -1,13 +1,16 @@
 # USA Ham Callbook Archive
 
-A searchable public archive of **7.38 million U.S. amateur radio license
-records** across **92 published callbook editions spanning 1909–1997 plus
-2003** — the OCR'd corpus of the historic *Radio Amateur Callbook*
-publications and pre-war government station lists, indexed, cross-referenced
-against the live FCC database, and made browsable.
+U.S. amateur radio license records, **1909 to present** — a searchable
+public archive of **7.38 million historic records** across 92 published
+callbook editions (1909–1997 + 2003), fused with **1.59 million current FCC
+licenses** refreshed weekly from the FCC's Universal Licensing System.
 
-**1,300,794 distinct callsigns. 14,339 detected radio clubs. Every entry
-traceable to its source edition.**
+Look up any callsign and see a century of its history: the printed-callbook
+paper trail through the 20th century, then the live FCC record — current
+holder, license status, operator lineage — up to this week.
+
+**1,300,794 distinct historic callsigns. 14,339 detected radio clubs. Every
+entry traceable to its source.**
 
 ## What you can do
 
@@ -38,11 +41,11 @@ the work, so here is exactly where the data comes from and how good it is.
 
 **Sources**
 
-| Source | What it provides |
-|---|---|
-| [leehite.org/callbooks](https://leehite.org/callbooks/) + archive.org | Scanned PDFs of 92 callbook editions, 1909–1997 |
-| FCC ULS weekly dump (`l_amat.zip`) | 1.59M current/recent licenses — names, status, grant dates, previous callsigns, license history (1997–present) |
-| ISO QSL-manager CDs (1999, 2003) | International QSL routing records |
+| Source | Coverage | What it provides |
+|---|---|---|
+| [leehite.org/callbooks](https://leehite.org/callbooks/) + archive.org | 1909–1997 | Scanned PDFs of 92 callbook editions |
+| FCC ULS weekly dump (`l_amat.zip`) | 1997–**present** (refreshed weekly) | 1.59M current licenses — holder, status, grant dates, previous callsigns, full license history |
+| ISO QSL-manager CDs | 1999, 2003 | International QSL routing records |
 
 **Pipeline**
 
