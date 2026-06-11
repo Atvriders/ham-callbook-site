@@ -6,6 +6,7 @@ services:
     environment:
       DB_PATH: /data/USA_Ham_Callbooks.sqlite
       ULS_JSON_PATH: /data/uls.json
+      ULS_HISTORY_PATH: /data/uls_history.json
     volumes:
       - ./data:/data:ro
     healthcheck:
@@ -28,8 +29,9 @@ services:
   caddy:
     image: git.waterburp.com/atvriders/ham-callbook-caddy:${TAG:-latest}
     ports:
-      - "80:80"
-      - "443:443"
+      # Site lands on host port 3017 (per-app port scheme; avoids grabbing
+      # the host's 80/443). Override with SITE_PORT=80 for a dedicated host.
+      - "${SITE_PORT:-3017}:80"
     volumes:
       - caddy_data:/data
       - caddy_config:/config
