@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path as PathParam
 from pydantic import BaseModel, Field
 
 from app.db import get_db
+from app.integrations import uls_history as _uls_history
 
 router = APIRouter(prefix="/api/callsign", tags=["callsign"])
 
@@ -788,6 +789,164 @@ def get_district_companion(cs: str, db: sqlite3.Connection = Depends(get_db)) ->
     return DistrictCompanion(callsign=cs_up)
 
 
+# --------------------------------------------------------------------------- #
+# ULS History models + endpoint                                               #
+# --------------------------------------------------------------------------- #
+
+
+class UlsLicenseRecord(BaseModel):
+    usi: str | None = None
+    name: str | None = None
+    status: str | None = None
+    status_label: str | None = None
+    grant: str | None = None
+    expired: str | None = None
+    cancel: str | None = None
+
+
+class UlsHistoryResponse(BaseModel):
+    callsign: str
+    found: bool
+    prev_call: str | None = None
+    prev_class: str | None = None
+    prev_class_label: str | None = None
+    licenses: list[UlsLicenseRecord] = Field(default_factory=list)
+    forward_links: list[str] = Field(
+        default_factory=list,
+        description="Callsigns whose AM.dat previous_callsign == this callsign (vanity successors).",
+    )
+
+
+def _build_uls_license(raw: dict) -> UlsLicenseRecord:
+    """Normalize a single raw license dict from the artifact into a model."""
+    status_raw = (raw.get("status") or "").strip().upper() or None
+    status_label = _uls_history._STATUS_LABELS.get(status_raw, "Unknown") if status_raw else None
+    return UlsLicenseRecord(
+        usi=raw.get("usi") or None,
+        name=raw.get("name") or None,
+        status=status_raw,
+        status_label=status_label,
+        grant=raw.get("grant") or None,
+        expired=raw.get("expired") or None,
+        cancel=raw.get("cancel") or None,
+    )
+
+
+@router.get("/{cs}/uls_history", response_model=UlsHistoryResponse)
+def get_uls_history(
+    cs: str = PathParam(..., description="Callsign, case-insensitive."),
+) -> UlsHistoryResponse:
+    """Return ULS-era history for a callsign.
+
+    Drawn from the pre-built ``uls_history.json`` artifact (AM.dat + HD.dat
+    from the FCC weekly l_amat.zip dump).  Always returns HTTP 200 with
+    ``found=false`` when no entry exists — never 404 or 500 for a valid
+    callsign shape.
+
+    ``forward_links`` lists callsigns whose ``AM.dat`` ``previous_callsign``
+    field equals this callsign — i.e. licensees who upgraded *from* (or
+    received the vanity re-issue of) this call after it was released.
+    """
+    callsign = normalize_callsign(cs)
+
+    # forward_links is independent of whether the callsign itself has a record.
+    fwd = _uls_history.forward_links(callsign)
+
+    rec = _uls_history.get(callsign)
+    if rec is None and not fwd:
+        return UlsHistoryResponse(callsign=callsign, found=False, forward_links=fwd)
+
+    if rec is None:
+        # Only forward links — callsign itself has no prev_call or multi-license.
+        return UlsHistoryResponse(callsign=callsign, found=True, forward_links=fwd)
+
+    prev_call = (rec.get("prev_call") or "").strip().upper() or None
+    prev_class_raw = (rec.get("prev_class") or "").strip().upper() or None
+    prev_class_label = _uls_history._CLASS_LABELS.get(prev_class_raw) if prev_class_raw else None
+
+    raw_licenses: list[dict] = rec.get("licenses") or []
+    licenses = [_build_uls_license(lic) for lic in raw_licenses if isinstance(lic, dict)]
+
+    return UlsHistoryResponse(
+        callsign=callsign,
+        found=True,
+        prev_call=prev_call,
+        prev_class=prev_class_raw,
+        prev_class_label=prev_class_label,
+        licenses=licenses,
+        forward_links=fwd,
+    )
+
+
+# ---------------------------------------------------------------------------
+# /api/callsign/{cs}/uls_chain  — shape consumed by the Next.js frontend
+# ---------------------------------------------------------------------------
+
+class UlsChainRecord(BaseModel):
+    usi:          str | None = None
+    holder:       str | None = None
+    status:       str | None = None
+    grant_date:   str | None = None
+    expired_date: str | None = None
+    cancel_date:  str | None = None
+
+
+class UlsLineage(BaseModel):
+    prev_callsign: str | None = None
+    fwd_callsign:  str | None = None
+
+
+class UlsChainResponse(BaseModel):
+    callsign: str
+    records:  list[UlsChainRecord] = Field(default_factory=list)
+    lineage:  UlsLineage = Field(default_factory=UlsLineage)
+
+
+@router.get("/{cs}/uls_chain", response_model=UlsChainResponse)
+def get_uls_chain(
+    cs: str = PathParam(..., description="Callsign, case-insensitive."),
+) -> UlsChainResponse:
+    """Frontend-facing alias for ULS history.
+
+    Returns the same underlying data as ``/uls_history`` but in the field
+    shape the Next.js callsign page expects: ``records[]`` with ``holder``,
+    ``grant_date``, ``expired_date``, ``cancel_date``; and a ``lineage``
+    object with ``prev_callsign`` / ``fwd_callsign``.
+    """
+    callsign = normalize_callsign(cs)
+
+    fwd_list = _uls_history.forward_links(callsign)
+    fwd_callsign = fwd_list[0] if fwd_list else None
+
+    rec = _uls_history.get(callsign)
+    prev_callsign: str | None = None
+    records: list[UlsChainRecord] = []
+
+    if rec is not None:
+        prev_call_raw = (rec.get("prev_call") or "").strip().upper()
+        prev_callsign = prev_call_raw or None
+
+        raw_licenses: list[dict] = rec.get("licenses") or []
+        for lic in raw_licenses:
+            if not isinstance(lic, dict):
+                continue
+            status_raw = (lic.get("status") or "").strip().upper() or None
+            records.append(UlsChainRecord(
+                usi=lic.get("usi") or None,
+                holder=lic.get("name") or None,
+                status=status_raw,
+                grant_date=lic.get("grant") or None,
+                expired_date=lic.get("expired") or None,
+                cancel_date=lic.get("cancel") or None,
+            ))
+
+    return UlsChainResponse(
+        callsign=callsign,
+        records=records,
+        lineage=UlsLineage(prev_callsign=prev_callsign, fwd_callsign=fwd_callsign),
+    )
+
+
 __all__ = [
     "router",
     "normalize_callsign",
@@ -802,4 +961,6 @@ __all__ = [
     "NearbyCallsigns",
     "NearbyCallsign",
     "DistrictCompanion",
+    "UlsLicenseRecord",
+    "UlsHistoryResponse",
 ]

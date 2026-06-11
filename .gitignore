@@ -5,6 +5,7 @@ data/*.sqlite-wal
 data/*.sqlite.bak*
 data/uls.json
 data/uls.json.*
+data/uls_history.json
 
 # Python
 __pycache__/

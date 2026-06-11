@@ -32,8 +32,14 @@ fi
 echo "[$(date)] downloaded $SIZE bytes"
 
 # 2. Extract the two files the builder needs.
+# (python zipfile, not unzip — the kasm container image doesn't ship unzip)
 mkdir -p "$ULS_DIR"
-unzip -o -q "$TMP_ZIP" EN.dat HD.dat -d "$ULS_DIR"
+python3 -c "
+import zipfile
+with zipfile.ZipFile('$TMP_ZIP') as z:
+    z.extract('EN.dat', '$ULS_DIR')
+    z.extract('HD.dat', '$ULS_DIR')
+"
 cp "$TMP_ZIP" "$ULS_DIR/l_amat.zip"
 echo "[$(date)] extracted EN.dat + HD.dat"
 

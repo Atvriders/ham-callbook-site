@@ -238,6 +238,30 @@ interface DistrictCompanion {
   basis: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// ULS chain types (new endpoint: /api/callsign/{cs}/uls_chain)
+// ---------------------------------------------------------------------------
+
+interface UlsLineage {
+  prev_callsign: string | null;
+  fwd_callsign:  string | null;
+}
+
+interface UlsLicenseRecord {
+  usi:          string;
+  holder:       string;
+  status:       string;
+  grant_date:   string | null;
+  expired_date: string | null;
+  cancel_date:  string | null;
+}
+
+interface UlsChain {
+  callsign: string;
+  records:  UlsLicenseRecord[];
+  lineage:  UlsLineage;
+}
+
 /**
  * Resolved current holder used by the hero. `source` discriminates the
  * provenance chip; everything else is best-effort and may be missing.
@@ -2061,6 +2085,165 @@ function DistrictReorgBanner({ data }: { data: DistrictCompanion | null }) {
 }
 
 /**
+ * Callsign lineage chip row — shown in the hero when AM.dat reveals a
+ * prev_callsign (the operator previously held a different call) or a
+ * fwd_callsign (another call points back at this one as its previous call).
+ */
+function CallsignLineageChip({ lineage }: { lineage: UlsLineage | null | undefined }) {
+  if (!lineage) return null;
+  const chips: Array<{ label: string; call: string }> = [];
+  if (lineage.prev_callsign)
+    chips.push({ label: "previously", call: lineage.prev_callsign });
+  if (lineage.fwd_callsign)
+    chips.push({ label: "upgraded to", call: lineage.fwd_callsign });
+  if (chips.length === 0) return null;
+  return (
+    <div style={{
+      border: "1px solid rgba(255,163,11,0.3)",
+      background: "rgba(255,163,11,0.04)",
+      padding: "0.45rem 0.85rem",
+      borderRadius: 4,
+      marginTop: "0.75rem",
+      fontFamily: fontStacks.mono,
+      fontSize: "0.78rem",
+      color: colors.accent,
+      display: "flex",
+      alignItems: "center",
+      gap: "0.6rem",
+      flexWrap: "wrap",
+    }}>
+      <span style={{ opacity: 0.6, letterSpacing: "0.3em", textTransform: "uppercase" }}>
+        OPERATOR LINEAGE
+      </span>
+      {chips.map(({ label, call }) => (
+        <span key={call} style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+          <span style={{ opacity: 0.35 }}>◆</span>
+          <span style={{ opacity: 0.75 }}>{label}</span>
+          <a
+            href={`/callsign/${call}`}
+            style={{ color: colors.accent, textDecoration: "underline", fontWeight: 600 }}
+          >
+            {call}
+          </a>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * FCC License Chain — table of all historical license records for this
+ * callsign from HD.dat (multiple USI rows = multiple licensees over time).
+ * Only rendered when records.length > 1 (single-record is already shown
+ * by the hero's FCC ULS section).
+ */
+function FccLicenseChain({ chain }: { chain: UlsChain | null | undefined }) {
+  if (!chain || chain.records.length === 0) return null;
+  // Only show the multi-record view when there's more than one USI.
+  // Single-holder calls have the data in the hero already.
+  if (chain.records.length < 2) return null;
+
+  const statusLabel = (s: string) =>
+    s === "A" ? "ACTIVE" : s === "E" ? "EXPIRED" : s === "C" ? "CANCELLED" : s;
+  const statusColor = (s: string): string =>
+    s === "A" ? colors.success : s === "C" ? colors.danger : colors.text_dim;
+
+  return (
+    <div style={{
+      border: `1px solid ${colors.border}`,
+      borderRadius: "0.25rem",
+      overflow: "hidden",
+      position: "relative",
+    }}>
+      <CornerTicks />
+      {/* Column header row */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "6rem minmax(0, 1fr) 6rem 8rem 8rem 8rem",
+        borderBottom: `1px solid ${colors.border}`,
+        background: "rgba(10,14,26,0.55)",
+      }}>
+        {["USI", "Holder", "Status", "Granted", "Expires", "Cancelled"].map((col, i) => (
+          <div key={col} style={{
+            padding: "0.45rem 0.75rem",
+            fontFamily: fontStacks.mono,
+            fontSize: "0.6rem",
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: colors.text_dim,
+            textAlign: i > 2 ? "right" : "left",
+          }}>
+            {col}
+          </div>
+        ))}
+      </div>
+      {chain.records.map((rec, idx) => (
+        <div key={rec.usi} style={{
+          display: "grid",
+          gridTemplateColumns: "6rem minmax(0, 1fr) 6rem 8rem 8rem 8rem",
+          borderBottom: idx < chain.records.length - 1 ? `1px solid ${colors.border}` : undefined,
+          background: idx % 2 === 0 ? "transparent" : "rgba(255,163,11,0.018)",
+        }}>
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            fontFamily: fontStacks.mono,
+            fontSize: "0.75rem",
+            color: colors.text_dim,
+          }}>
+            {rec.usi}
+          </div>
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            fontFamily: fontStacks.display,
+            fontSize: "0.9rem",
+            fontVariationSettings: '"opsz" 18',
+            color: colors.text,
+          }}>
+            {rec.holder || "—"}
+          </div>
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            fontFamily: fontStacks.mono,
+            fontSize: "0.72rem",
+            letterSpacing: "0.1em",
+            color: statusColor(rec.status),
+          }}>
+            {statusLabel(rec.status)}
+          </div>
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            fontFamily: fontStacks.mono,
+            fontSize: "0.8rem",
+            color: colors.text,
+            textAlign: "right",
+          }}>
+            {rec.grant_date ?? "—"}
+          </div>
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            fontFamily: fontStacks.mono,
+            fontSize: "0.8rem",
+            color: colors.text_dim,
+            textAlign: "right",
+          }}>
+            {rec.expired_date ?? "—"}
+          </div>
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            fontFamily: fontStacks.mono,
+            fontSize: "0.8rem",
+            color: rec.cancel_date ? colors.danger : colors.text_dim,
+            textAlign: "right",
+          }}>
+            {rec.cancel_date ?? "—"}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Demoted archive summary — this is the content the page hero USED to
  * show before the current-holder refactor (latest record name, year, full
  * historical span, edition count). Visually subordinate: smaller display
@@ -2220,7 +2403,7 @@ export default async function CallsignPage({ params }: PageProps) {
   // by upstream cache. ActivityPanel still does its own fetch under
   // Suspense — we don't share state between this top-level data load and
   // that subtree so the activity panel can render independently.
-  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion] =
+  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain] =
     await Promise.all([
       apiGet<CallsignDetail>(
         `/api/callsign/${encodeURIComponent(callsign)}`,
@@ -2243,6 +2426,9 @@ export default async function CallsignPage({ params }: PageProps) {
       ),
       apiGet<DistrictCompanion>(
         `/api/callsign/${encodeURIComponent(callsign)}/district_companion`,
+      ).catch(() => null),
+      apiGet<UlsChain>(
+        `/api/callsign/${encodeURIComponent(callsign)}/uls_chain`,
       ).catch(() => null),
     ]);
 
@@ -2359,6 +2545,7 @@ export default async function CallsignPage({ params }: PageProps) {
           <HeroCallsign callsign={detail.latest.callsign} />
 
           <Reveal delay={0.35}><DistrictReorgBanner data={districtCompanion ?? null} /></Reveal>
+          <Reveal delay={0.37}><CallsignLineageChip lineage={ulsChain?.lineage ?? null} /></Reveal>
 
           {/* Source provenance chip — tells the reader at a glance whether
               the name they're about to read is the LIVE current licensee
@@ -2506,6 +2693,25 @@ export default async function CallsignPage({ params }: PageProps) {
           })()}
         </Reveal>
       </section>
+
+      {/* --- FCC LICENSE RECORDS ----------------------------------------- */}
+      {ulsChain && ulsChain.records.length >= 2 ? (
+        <>
+          <div style={PAGE_CONTAINER}>
+            <MorseDivider label="fcc license records" />
+          </div>
+          <section style={PAGE_CONTAINER}>
+            <Reveal delay={0.05}>
+              <SectionHeader
+                kicker="ULS era · 1997+"
+                title="FCC license history"
+                tally={`${ulsChain.records.length.toString().padStart(2, "0")} records`}
+              />
+              <FccLicenseChain chain={ulsChain} />
+            </Reveal>
+          </section>
+        </>
+      ) : null}
 
       {/* --- ASYMMETRIC MAIN GRID ---------------------------------------- */}
       <div style={PAGE_CONTAINER}>
