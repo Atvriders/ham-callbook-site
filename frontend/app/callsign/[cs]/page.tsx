@@ -54,6 +54,7 @@ import HeroCallsign from "./HeroCallsign";
 import Reveal from "./Reveal";
 import TuningKnob from "./TuningKnob";
 import TuningIndicator from "./TuningIndicator";
+import CiteThisRecord from "../../../components/CiteThisRecord";
 
 // ---------------------------------------------------------------------------
 // Local types — mirror the FastAPI response shapes for the endpoints this
@@ -2836,6 +2837,19 @@ export default async function CallsignPage({ params }: PageProps) {
             </div>
           )}
         </Reveal>
+      </section>
+
+      {/* --- CITE THIS RECORD -------------------------------------------- */}
+      <section style={{ ...PAGE_CONTAINER, padding: "0 2rem 4rem" }}>
+        <CiteThisRecord
+          recordType="callsign"
+          identifier={callsign}
+          displayName={detail.latest.name ?? undefined}
+          editionList={(history ?? []).map((h) => h.edition ?? String(h.year))}
+          permalink={`https://callbook.archive/callsign/${callsign}`}
+          datasetVersion="v2026.06"
+          accessDate={new Date().toISOString().slice(0, 10)}
+        />
       </section>
     </main>
   );

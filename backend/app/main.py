@@ -56,6 +56,10 @@ from app.routes import (
 from app.routes import clubs as clubs_router
 from app.routes import club as club_router
 from app.routes import callsign_club as callsign_club_router
+from app.routes import records as records_router
+from app.routes import diff as diff_router
+from app.routes import qsl as qsl_router
+from app.routes import data_portal as data_portal_router
 
 logger = logging.getLogger("callbook.backend")
 logging.basicConfig(
@@ -183,6 +187,10 @@ app.include_router(random_route.router, tags=["fun"])
 app.include_router(clubs_router.router)
 app.include_router(club_router.router)
 app.include_router(callsign_club_router.router)
+app.include_router(records_router.router, tags=["records"])
+app.include_router(diff_router.router, tags=["diff"])
+app.include_router(qsl_router.router, tags=["qsl"])
+app.include_router(data_portal_router.router, tags=["data-portal"])
 
 
 # --------------------------------------------------------------------------- #

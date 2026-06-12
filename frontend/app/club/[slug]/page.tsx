@@ -35,6 +35,7 @@ import ClubMultiCallsignTimeline, {
 import ClubCard from "../../../components/ClubCard";
 import ClubTypePip from "../../../components/ClubTypePip";
 import RosterTable from "./RosterTable";
+import CiteThisRecord from "../../../components/CiteThisRecord";
 
 // ---------------------------------------------------------------------------
 // Wire types — mirror Club, ClubDetection, RelatedClub in app/routes/club.py.
@@ -827,6 +828,24 @@ export default async function ClubPage({
             ))}
           </div>
         )}
+      </section>
+
+      {/* --- CITE THIS RECORD -------------------------------------------- */}
+      <section style={{ maxWidth: "min(110rem, 100%)", margin: "0 auto", padding: "0 2rem 4rem" }}>
+        <CiteThisRecord
+          recordType="club"
+          identifier={decodedSlug}
+          displayName={club.display_name ?? undefined}
+          editionList={Array.from(
+            { length: ((club.last_year ?? club.first_year) != null && club.first_year != null)
+                ? (club.last_year ?? club.first_year)! - club.first_year! + 1
+                : 0 },
+            (_, i) => String((club.first_year ?? 0) + i)
+          )}
+          permalink={`https://callbook.archive/clubs/${encodeURIComponent(decodedSlug)}`}
+          datasetVersion="v2026.06"
+          accessDate={new Date().toISOString().slice(0, 10)}
+        />
       </section>
     </main>
   );

@@ -6,6 +6,15 @@ data/*.sqlite.bak*
 data/uls.json
 data/uls.json.*
 data/uls_history.json
+# Generated JSON artifacts (rebuilt by data-pipeline, not committed)
+data/leaderboards.json
+data/edition_diff.json
+# Downloads directory (user-generated exports)
+data/downloads/
+# In-tree sqlite symlink/copy (never commit DB)
+backend/app/*.sqlite
+backend/app/*.sqlite-shm
+backend/app/*.sqlite-wal
 
 # Python
 __pycache__/
