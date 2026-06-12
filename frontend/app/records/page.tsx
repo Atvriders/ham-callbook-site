@@ -20,6 +20,8 @@ import { colors, fontStacks, motifs } from "../../lib/design";
 import { LeaderboardTable } from "../../components/records/LeaderboardTable";
 import type { LeaderboardRow } from "../../components/records/LeaderboardTable";
 
+export const dynamic = "force-dynamic";
+
 // --------------------------------------------------------------------------- //
 // Types                                                                       //
 // --------------------------------------------------------------------------- //

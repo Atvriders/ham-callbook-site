@@ -10,6 +10,8 @@
 
 import { colors, fontStacks } from "../../lib/design";
 
+export const dynamic = "force-dynamic";
+
 interface ManifestFile {
   filename: string;
   year: number;

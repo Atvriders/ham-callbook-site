@@ -11,6 +11,8 @@
 import Link from "next/link";
 import { colors, fontStacks } from "../../../lib/design";
 
+export const dynamic = "force-dynamic";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8000/api";
 
