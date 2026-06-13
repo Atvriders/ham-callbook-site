@@ -1,13 +1,13 @@
 # Production-style compose: pulls pre-built images from a container registry.
 #
-# Registry is selectable via ${REGISTRY} (default = the Gitea registry):
-#   default (Gitea):   docker compose pull && docker compose up -d
-#   GitHub (GHCR):     REGISTRY=ghcr.io/atvriders docker compose pull && \
-#                      REGISTRY=ghcr.io/atvriders docker compose up -d
+# Registry is selectable via ${REGISTRY} (default = GitHub Container Registry):
+#   default (GHCR):    docker compose pull && docker compose up -d
+#   Gitea registry:    REGISTRY=git.waterburp.com/atvriders docker compose pull && \
+#                      REGISTRY=git.waterburp.com/atvriders docker compose up -d
 # For local dev with source rebuilds, use docker-compose.dev.yml.
 services:
   backend:
-    image: ${REGISTRY:-git.waterburp.com/atvriders}/ham-callbook-backend:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-backend:${TAG:-latest}
     environment:
       DB_PATH: /data/USA_Ham_Callbooks.sqlite
       ULS_JSON_PATH: /data/uls.json
@@ -38,7 +38,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${REGISTRY:-git.waterburp.com/atvriders}/ham-callbook-frontend:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-frontend:${TAG:-latest}
     environment:
       NEXT_PUBLIC_API_BASE: /api
     depends_on:
@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: ${REGISTRY:-git.waterburp.com/atvriders}/ham-callbook-caddy:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-caddy:${TAG:-latest}
     ports:
       # Site lands on host port 3017 (per-app port scheme; avoids grabbing
       # the host's 80/443). Override with SITE_PORT=80 for a dedicated host.

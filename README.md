@@ -119,11 +119,13 @@ backend never writes at request time.
 
 ## Deploy (Docker Compose)
 
-Images are built by CI and pushed to the Gitea registry on every commit to
-master.
+Images are built by CI and published on every commit to master — to GitHub
+Container Registry (`ghcr.io/atvriders/ham-callbook-*`, the compose default)
+and to the Gitea registry. The GHCR images are public, so no `docker login` is
+needed to pull them.
 
 ```bash
-git clone https://git.waterburp.com/Atvriders/ham-callbook-site
+git clone https://github.com/Atvriders/ham-callbook-site
 cd ham-callbook-site
 
 # Data files are NOT in git (~3 GB total). Place them in ./data/:
@@ -134,10 +136,13 @@ cd ham-callbook-site
 #   edition_diff.json          (47 KB — edition-pair churn stats)
 #   downloads/                 (open-data exports + MANIFEST.json)
 
-docker login git.waterburp.com
-docker compose pull
+docker compose pull          # pulls from ghcr.io/atvriders by default
 docker compose up -d
 # site at http://<host>:3017    (override: SITE_PORT=80 docker compose up -d)
+
+# To pull from the Gitea registry instead:
+#   export REGISTRY=git.waterburp.com/atvriders
+#   docker login git.waterburp.com && docker compose pull && docker compose up -d
 ```
 
 `docker-compose.dev.yml` builds the images from source instead:
