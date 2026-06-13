@@ -221,13 +221,45 @@ data/               (gitignored) sqlite + uls.json + uls_history.json
 .gitea/workflows/   CI: builds + pushes the three images on every master push
 ```
 
-## Credits
+## Credits & sources
 
-- Scanned callbooks courtesy of **Lee Hite**
-  ([leehite.org](https://leehite.org/callbooks/)) and the **Internet
-  Archive**
-- Current license data from the **FCC Universal Licensing System** public
-  dumps
-- Live spot data from **PSK Reporter** and the **Reverse Beacon Network**
-- *Radio Amateur Callbook* is a historic publication; this archive exists
-  for historical research and amateur-radio heritage preservation
+This archive stands entirely on the work of the people and institutions who
+scanned, published, and freely released the underlying material. None of it
+would exist without them.
+
+**Scanned printed callbooks (the heart of the archive, 1909–1997)**
+- **Lee Hite** — [leehite.org/callbooks](https://leehite.org/callbooks/) —
+  the curated collection of *Radio Amateur Callbook* scans that the bulk of
+  this corpus is OCR'd from. The single most important source.
+- **Internet Archive** ([archive.org](https://archive.org)) and its
+  **Digital Library of Amateur Radio & Communications (DLARC)** — additional
+  edition scans and the home of the public-domain callbook collection.
+
+**Pre-1928 government station lists**
+- **U.S. Department of Commerce**, *Amateur Radio Stations of the United
+  States* (1913–1931 series) — public-domain government publications, scans
+  via the Internet Archive and **HathiTrust**.
+- The early *Official Wireless Blue Book* annual editions (1909–1914).
+
+**Current & historical FCC license data (1997–present)**
+- **FCC Universal Licensing System (ULS)** — the free weekly `l_amat.zip`
+  public bulk dump (names, status, grant/expiry dates, previous callsigns,
+  license history). Refreshed weekly. A U.S. government public record.
+
+**Name & demographic reference data**
+- **U.S. Social Security Administration** — public-domain National Baby Names
+  dataset, used (gender-association only, with explicit confidence bands) for
+  the YL-index estimate.
+
+**Live on-air activity**
+- **PSK Reporter** ([pskreporter.info](https://pskreporter.info)) and the
+  **Reverse Beacon Network** ([reversebeacon.net](https://reversebeacon.net))
+  — recent spot data for the live-activity panels.
+
+**A note on the publication**
+*Radio Amateur Callbook* is a historic publication. This project exists for
+historical research, genealogy, and amateur-radio heritage preservation. All
+historical records remain attributed to their original publisher; the
+structured data and derived analyses are released under ODC-BY (see
+`/data`). Found an error in a record? Use the in-site "Suggest a correction"
+button — fixes are reviewed and folded back into the dataset.
