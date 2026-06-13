@@ -33,12 +33,12 @@ logger = logging.getLogger("build_edition_diff")
 
 DB_PATH = os.environ.get(
     "DB_PATH",
-    str(Path(__file__).resolve().parents[4] / "data" / "USA_Ham_Callbooks.sqlite"),
+    str(Path(__file__).resolve().parents[3] / "data" / "USA_Ham_Callbooks.sqlite"),
 )
 
 OUTPUT_PATH = os.environ.get(
     "EDITION_DIFF_PATH",
-    str(Path(__file__).resolve().parents[4] / "data" / "edition_diff.json"),
+    str(Path(__file__).resolve().parents[3] / "data" / "edition_diff.json"),
 )
 
 # License class ordering — higher index = higher tier

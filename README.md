@@ -115,10 +115,13 @@ master.
 git clone https://git.waterburp.com/Atvriders/ham-callbook-site
 cd ham-callbook-site
 
-# Data files are NOT in git (~2.9 GB total). Place them in ./data/:
+# Data files are NOT in git (~3 GB total). Place them in ./data/:
 #   USA_Ham_Callbooks.sqlite   (2.7 GB — the archive DB, FTS5 + clubs included)
 #   uls.json                   (185 MB — current FCC snapshot)
 #   uls_history.json           (36 MB — lineage + license chains)
+#   leaderboards.json          (105 KB — Century Club rankings)
+#   edition_diff.json          (47 KB — edition-pair churn stats)
+#   downloads/                 (open-data exports + MANIFEST.json)
 
 docker login git.waterburp.com
 docker compose pull

@@ -39,12 +39,12 @@ logger = logging.getLogger("build_data_release")
 
 DB_PATH: str = os.environ.get(
     "DB_PATH",
-    str(Path(__file__).resolve().parents[4] / "data" / "USA_Ham_Callbooks.sqlite"),
+    str(Path(__file__).resolve().parents[3] / "data" / "USA_Ham_Callbooks.sqlite"),
 )
 
 DATA_DIR: str = os.environ.get(
     "DATA_DIR",
-    str(Path(__file__).resolve().parents[4] / "data"),
+    str(Path(__file__).resolve().parents[3] / "data"),
 )
 
 DOWNLOADS_DIR: Path = Path(DATA_DIR) / "downloads"
