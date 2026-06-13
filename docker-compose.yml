@@ -7,6 +7,7 @@ services:
       DB_PATH: /data/USA_Ham_Callbooks.sqlite
       ULS_JSON_PATH: /data/uls.json
       ULS_HISTORY_PATH: /data/uls_history.json
+      NAME_TRENDS_PATH: /data/name_trends.json
     volumes:
       - ./data:/data:ro
     healthcheck:

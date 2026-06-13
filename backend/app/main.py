@@ -71,6 +71,12 @@ from app.routes import address as address_router
 from app.routes import provenance as provenance_router
 from app.routes import corrections as corrections_router
 from app.integrations import address_index as _address_index_integration
+from app.routes import adif as adif_router
+from app.routes import cohorts as cohorts_router
+from app.routes import name_trends as name_trends_router
+from app.routes import gedcom as gedcom_router
+from app.integrations import cohorts as _cohorts_integration
+from app.integrations import name_trends as _name_trends_integration
 
 logger = logging.getLogger("callbook.backend")
 logging.basicConfig(
@@ -143,6 +149,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
         logger.exception("Failed to pre-load address-index artifact")
+
+    try:
+        _cohorts_integration.ensure_loaded()
+        logger.info(
+            "Cohorts artifact loaded :: cohorts=%d",
+            _cohorts_integration.stats().get("cohort_count", 0),
+        )
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load cohorts artifact")
+
+    try:
+        _name_trends_integration.ensure_loaded()
+        logger.info(
+            "Name-trends artifact loaded",
+        )
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load name-trends artifact")
 
     try:
         yield
@@ -246,6 +269,10 @@ app.include_router(address_router.router, tags=["address"])
 app.include_router(address_router.hh_router, tags=["households"])
 app.include_router(provenance_router.router, tags=["provenance"])
 app.include_router(corrections_router.router)
+app.include_router(adif_router.router, tags=["adif"])
+app.include_router(cohorts_router.router, tags=["cohorts"])
+app.include_router(name_trends_router.router, tags=["name-trends"])
+app.include_router(gedcom_router.router, tags=["gedcom"])
 
 
 # --------------------------------------------------------------------------- #

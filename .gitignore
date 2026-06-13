@@ -23,6 +23,9 @@ data/submissions.sqlite-wal
 data/page_cache/
 # Downloads directory (user-generated exports)
 data/downloads/
+# Wave-4 precomputed artifacts (large, rebuilt by build_cohorts.py / build_name_trends.py)
+data/cohorts.json
+data/name_trends.json
 # In-tree sqlite symlink/copy (never commit DB)
 backend/app/*.sqlite
 backend/app/*.sqlite-shm

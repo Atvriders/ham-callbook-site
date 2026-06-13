@@ -2987,6 +2987,72 @@ export default async function CallsignPage({ params }: PageProps) {
           accessDate={new Date().toISOString().slice(0, 10)}
         />
       </section>
+
+      {/* --- GEDCOM DOWNLOAD --------------------------------------------- */}
+      <section style={{ ...PAGE_CONTAINER, padding: "0 2rem 5rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1.5rem",
+            flexWrap: "wrap",
+            padding: "1rem 1.25rem",
+            border: `1px solid ${colors.border}`,
+            background: colors.surface,
+            borderRadius: "0.25rem",
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                fontFamily: fontStacks.mono,
+                fontSize: "0.65rem",
+                letterSpacing: "0.32em",
+                textTransform: "uppercase",
+                color: colors.accent,
+                marginBottom: "0.3rem",
+              }}
+            >
+              GEDCOM 5.5.1 export
+            </div>
+            <div
+              style={{
+                fontFamily: fontStacks.body,
+                fontSize: "0.85rem",
+                color: colors.text_dim,
+                lineHeight: 1.4,
+              }}
+            >
+              Download a .ged file with RESI events per edition address, license-class
+              upgrade events, and per-fact source citations. Imports into Gramps, Ancestry,
+              and most genealogy software. Want family-tree matches? Try the{" "}
+              <a href="/gedcom" style={{ color: colors.accent }}>GEDCOM Bridge</a>.
+            </div>
+          </div>
+          <a
+            href={`/api/gedcom/${encodeURIComponent(callsign)}`}
+            download={`${callsign}.ged`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.55rem 1.1rem",
+              border: `1px solid ${colors.accent}`,
+              background: "rgba(255,163,11,0.08)",
+              color: colors.accent,
+              fontFamily: fontStacks.mono,
+              fontSize: "0.78rem",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              borderRadius: "0.125rem",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Download GEDCOM
+          </a>
+        </div>
+      </section>
     </main>
   );
 }
