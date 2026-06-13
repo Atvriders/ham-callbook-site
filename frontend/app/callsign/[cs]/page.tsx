@@ -55,6 +55,7 @@ import Reveal from "./Reveal";
 import TuningKnob from "./TuningKnob";
 import TuningIndicator from "./TuningIndicator";
 import CiteThisRecord from "../../../components/CiteThisRecord";
+import PrintedLineageCard, { type PrintedLineageResponse } from "../../../components/PrintedLineageCard";
 
 // ---------------------------------------------------------------------------
 // Local types — mirror the FastAPI response shapes for the endpoints this
@@ -2387,6 +2388,24 @@ interface PageProps {
   params: Promise<{ cs: string }>;
 }
 
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { cs: csRaw } = await params;
+  const callsign = decodeURIComponent(csRaw ?? "").toUpperCase();
+  const API_BASE_META: string = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/+$/, "");
+  return {
+    title: callsign,
+    openGraph: {
+      images: [`${API_BASE_META}/card/${encodeURIComponent(callsign)}.png`],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: [`${API_BASE_META}/card/${encodeURIComponent(callsign)}.png`],
+    },
+  };
+}
+
 export default async function CallsignPage({ params }: PageProps) {
   const { cs: csRaw } = await params;
   const callsign = decodeURIComponent(csRaw ?? "").toUpperCase();
@@ -2404,7 +2423,7 @@ export default async function CallsignPage({ params }: PageProps) {
   // by upstream cache. ActivityPanel still does its own fetch under
   // Suspense — we don't share state between this top-level data load and
   // that subtree so the activity panel can render independently.
-  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain] =
+  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain, printedLineage] =
     await Promise.all([
       apiGet<CallsignDetail>(
         `/api/callsign/${encodeURIComponent(callsign)}`,
@@ -2430,6 +2449,9 @@ export default async function CallsignPage({ params }: PageProps) {
       ).catch(() => null),
       apiGet<UlsChain>(
         `/api/callsign/${encodeURIComponent(callsign)}/uls_chain`,
+      ).catch(() => null),
+      apiGet<PrintedLineageResponse>(
+        `/api/lineage/${encodeURIComponent(callsign)}`,
       ).catch(() => null),
     ]);
 
@@ -2547,6 +2569,9 @@ export default async function CallsignPage({ params }: PageProps) {
 
           <Reveal delay={0.35}><DistrictReorgBanner data={districtCompanion ?? null} /></Reveal>
           <Reveal delay={0.37}><CallsignLineageChip lineage={ulsChain?.lineage ?? null} /></Reveal>
+          {printedLineage?.found ? (
+            <Reveal delay={0.38}><PrintedLineageCard data={printedLineage} /></Reveal>
+          ) : null}
 
           {/* Source provenance chip — tells the reader at a glance whether
               the name they're about to read is the LIVE current licensee

@@ -10,6 +10,8 @@ data/uls_history.json
 data/leaderboards.json
 data/edition_diff.json
 data/defunct_clubs.json
+data/printed_lineage.json
+data/phonetic_index.json
 # Downloads directory (user-generated exports)
 data/downloads/
 # In-tree sqlite symlink/copy (never commit DB)

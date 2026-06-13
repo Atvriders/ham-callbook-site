@@ -62,6 +62,11 @@ from app.routes import qsl as qsl_router
 from app.routes import data_portal as data_portal_router
 from app.routes import defunct_clubs as defunct_clubs_router
 from app.integrations import defunct_clubs as _defunct_clubs_integration
+from app.routes import lineage as lineage_router
+from app.routes import people as people_router
+from app.routes import heritage as heritage_router
+from app.integrations import printed_lineage as _printed_lineage_integration
+from app.integrations import phonetic_index as _phonetic_index_integration
 
 logger = logging.getLogger("callbook.backend")
 logging.basicConfig(
@@ -110,6 +115,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
         logger.exception("Failed to pre-load defunct-clubs artifact")
+
+    try:
+        _printed_lineage_integration.ensure_loaded()
+        logger.info(
+            "Printed-lineage artifact loaded :: links=%d",
+            _printed_lineage_integration.stats().get("link_count", 0),
+        )
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load printed-lineage artifact")
+
+    try:
+        _phonetic_index_integration.ensure_loaded()
+        logger.info("Phonetic-index artifact loaded")
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load phonetic-index artifact")
 
     try:
         yield
@@ -206,6 +226,9 @@ app.include_router(data_portal_router.router, tags=["data-portal"])
 # Defunct Clubs — must be registered AFTER clubs_router so /api/clubs/defunct
 # does not conflict with /api/clubs/{slug} (FastAPI routes in declaration order).
 app.include_router(defunct_clubs_router.router)
+app.include_router(lineage_router.router, tags=["lineage"])
+app.include_router(people_router.router, tags=["people"])
+app.include_router(heritage_router.router, tags=["heritage"])
 
 
 # --------------------------------------------------------------------------- #
