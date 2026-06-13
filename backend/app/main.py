@@ -67,6 +67,10 @@ from app.routes import people as people_router
 from app.routes import heritage as heritage_router
 from app.integrations import printed_lineage as _printed_lineage_integration
 from app.integrations import phonetic_index as _phonetic_index_integration
+from app.routes import address as address_router
+from app.routes import provenance as provenance_router
+from app.routes import corrections as corrections_router
+from app.integrations import address_index as _address_index_integration
 
 logger = logging.getLogger("callbook.backend")
 logging.basicConfig(
@@ -130,6 +134,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("Phonetic-index artifact loaded")
     except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
         logger.exception("Failed to pre-load phonetic-index artifact")
+
+    try:
+        _address_index_integration.ensure_loaded()
+        logger.info(
+            "Address-index artifact loaded :: stats=%s",
+            _address_index_integration.stats(),
+        )
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load address-index artifact")
 
     try:
         yield
@@ -229,6 +242,10 @@ app.include_router(defunct_clubs_router.router)
 app.include_router(lineage_router.router, tags=["lineage"])
 app.include_router(people_router.router, tags=["people"])
 app.include_router(heritage_router.router, tags=["heritage"])
+app.include_router(address_router.router, tags=["address"])
+app.include_router(address_router.hh_router, tags=["households"])
+app.include_router(provenance_router.router, tags=["provenance"])
+app.include_router(corrections_router.router)
 
 
 # --------------------------------------------------------------------------- #

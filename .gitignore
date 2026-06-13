@@ -12,6 +12,15 @@ data/edition_diff.json
 data/defunct_clubs.json
 data/printed_lineage.json
 data/phonetic_index.json
+# Wave-3 address/households artifacts (large, rebuilt by build_address_index.py)
+data/address_clusters.json
+data/households.json
+# Wave-3 submissions store (writable, survives DB swaps, never committed)
+data/submissions.sqlite
+data/submissions.sqlite-shm
+data/submissions.sqlite-wal
+# Wave-3 page cache (rendered PNG pages from pdftoppm, rebuilt on demand)
+data/page_cache/
 # Downloads directory (user-generated exports)
 data/downloads/
 # In-tree sqlite symlink/copy (never commit DB)

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, JetBrains_Mono, Geist } from "next/font/google";
 import Link from "next/link";
-import { Radio, Search, BookOpen, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch } from "lucide-react";
+import { Radio, Search, BookOpen, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch, MapPin, AlertCircle } from "lucide-react";
 import "./globals.css";
 
 /* ---------------------------------------------------------------------------
@@ -80,6 +80,8 @@ function Nav() {
     { href: "/qsl-dating", label: "QSL", Icon: FileSearch },
     { href: "/data", label: "Data", Icon: Database },
     { href: "/people", label: "People", Icon: UserSearch },
+    { href: "/address", label: "Address", Icon: MapPin },
+    { href: "/restore", label: "Restore", Icon: AlertCircle },
   ];
   return (
     <header className="border-b border-[color:var(--color-border)] bg-[color:var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-50">

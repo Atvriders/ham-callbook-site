@@ -56,6 +56,8 @@ import TuningKnob from "./TuningKnob";
 import TuningIndicator from "./TuningIndicator";
 import CiteThisRecord from "../../../components/CiteThisRecord";
 import PrintedLineageCard, { type PrintedLineageResponse } from "../../../components/PrintedLineageCard";
+import SourceViewer from "../../../components/SourceViewer";
+import { SuggestCorrection } from "../../../components/SuggestCorrection";
 
 // ---------------------------------------------------------------------------
 // Local types — mirror the FastAPI response shapes for the endpoints this
@@ -227,6 +229,21 @@ interface QrzEnvelope {
   found: boolean;
   source: string;
   profile?: QrzPublicProfile;
+}
+
+interface AddressClusterSummary {
+  cluster_key: string;
+  normalized_address: string;
+  city: string | null;
+  state: string | null;
+  occupant_count: number;
+  year_span: string | null;
+}
+
+interface AddressClustersResponse {
+  callsign: string;
+  cluster_count: number;
+  clusters: AddressClusterSummary[];
 }
 
 interface DistrictCompanion {
@@ -1173,7 +1190,7 @@ function HoldersTimeline({ holders }: { holders: HoldersHistoryResult }) {
 /**
  * (c) All-editions table — one row per callbook appearance.
  */
-function AppearancesTable({ history }: { history: CallsignHistoryItem[] }) {
+function AppearancesTable({ history, showSource = false }: { history: CallsignHistoryItem[]; showSource?: boolean }) {
   if (history.length === 0) {
     return (
       <div
@@ -1197,12 +1214,17 @@ function AppearancesTable({ history }: { history: CallsignHistoryItem[] }) {
       style={{
         display: "grid",
         gridTemplateColumns:
-          "5rem 5rem minmax(0, 1.5fr) minmax(0, 1fr) 4rem 4rem",
+          showSource
+            ? "5rem 5rem minmax(0, 1.5fr) minmax(0, 1fr) 4rem 4rem minmax(0,1fr)"
+            : "5rem 5rem minmax(0, 1.5fr) minmax(0, 1fr) 4rem 4rem",
         borderTop: `1px solid ${colors.border}`,
       }}
     >
       <div role="row" style={{ display: "contents" }}>
-        {["Year", "Edition", "Holder", "Location", "State", "Class"].map(
+        {(showSource
+          ? ["Year", "Edition", "Holder", "Location", "State", "Class", "Source"]
+          : ["Year", "Edition", "Holder", "Location", "State", "Class"]
+        ).map(
           (label, i) => (
             <div
               key={label}
@@ -1305,6 +1327,23 @@ function AppearancesTable({ history }: { history: CallsignHistoryItem[] }) {
           >
             {classLabelForCode(row.license_class, row.year)}
           </div>
+          {showSource && row.edition ? (
+            <div
+              role="cell"
+              style={{
+                padding: "0.35rem 0.75rem",
+                borderBottom: `1px solid ${colors.border}`,
+              }}
+            >
+              <SourceViewer
+                callsign={row.callsign}
+                year={row.year}
+                edition={row.edition}
+              />
+            </div>
+          ) : showSource ? (
+            <div role="cell" style={{ borderBottom: `1px solid ${colors.border}` }} />
+          ) : null}
         </div>
       ))}
     </div>
@@ -2423,7 +2462,7 @@ export default async function CallsignPage({ params }: PageProps) {
   // by upstream cache. ActivityPanel still does its own fetch under
   // Suspense — we don't share state between this top-level data load and
   // that subtree so the activity panel can render independently.
-  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain, printedLineage] =
+  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain, printedLineage, addressClusters] =
     await Promise.all([
       apiGet<CallsignDetail>(
         `/api/callsign/${encodeURIComponent(callsign)}`,
@@ -2452,6 +2491,9 @@ export default async function CallsignPage({ params }: PageProps) {
       ).catch(() => null),
       apiGet<PrintedLineageResponse>(
         `/api/lineage/${encodeURIComponent(callsign)}`,
+      ).catch(() => null),
+      apiGet<AddressClustersResponse>(
+        `/api/address/callsign/${encodeURIComponent(callsign)}`,
       ).catch(() => null),
     ]);
 
@@ -2810,7 +2852,7 @@ export default async function CallsignPage({ params }: PageProps) {
             title="All appearances"
             tally={`${(history?.length ?? 0).toString().padStart(3, "0")} editions`}
           />
-          <AppearancesTable history={history ?? []} />
+          <AppearancesTable history={history ?? []} showSource />
         </Reveal>
       </section>
 
@@ -2861,6 +2903,75 @@ export default async function CallsignPage({ params }: PageProps) {
               Nearby callsigns unavailable.
             </div>
           )}
+        </Reveal>
+      </section>
+
+      {/* --- ADDRESS TIME MACHINE cross-links ----------------------------- */}
+      {addressClusters && addressClusters.cluster_count > 0 ? (
+        <>
+          <div style={PAGE_CONTAINER}>
+            <MorseDivider label="address time machine" />
+          </div>
+          <section style={{ ...PAGE_CONTAINER, paddingBottom: "2rem" }}>
+            <Reveal delay={0.05}>
+              <SectionHeader
+                kicker="Neighbors"
+                title="Address clusters"
+                tally={`${addressClusters.cluster_count} address${addressClusters.cluster_count === 1 ? "" : "es"}`}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {addressClusters.clusters.map((c) => (
+                  <a
+                    key={c.cluster_key}
+                    href={`/address?cluster=${encodeURIComponent(c.cluster_key)}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: "1rem",
+                      padding: "0.6rem 0.85rem",
+                      border: `1px solid ${colors.border}`,
+                      background: colors.surface,
+                      color: colors.text,
+                      textDecoration: "none",
+                      fontFamily: fontStacks.mono,
+                      fontSize: "0.85rem",
+                      borderRadius: "0.125rem",
+                    }}
+                  >
+                    <span style={{ color: colors.accent, flexShrink: 0 }}>
+                      {c.normalized_address}
+                    </span>
+                    {c.city ? (
+                      <span style={{ color: colors.text_dim, fontSize: "0.78rem" }}>
+                        {c.city}{c.state ? `, ${c.state}` : ""}
+                      </span>
+                    ) : null}
+                    <span style={{ marginLeft: "auto", color: colors.text_dim, fontSize: "0.75rem", whiteSpace: "nowrap" }}>
+                      {c.occupant_count} occupant{c.occupant_count === 1 ? "" : "s"}
+                      {c.year_span ? ` · ${c.year_span}` : ""}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </Reveal>
+          </section>
+        </>
+      ) : null}
+
+      {/* --- SUGGEST A CORRECTION ----------------------------------------- */}
+      <div style={PAGE_CONTAINER}>
+        <MorseDivider label="corrections desk" />
+      </div>
+      <section style={{ ...PAGE_CONTAINER, paddingBottom: "2rem" }}>
+        <Reveal delay={0.05}>
+          <SectionHeader kicker="Corrections" title="Suggest a correction" />
+          <SuggestCorrection
+            callsign={callsign}
+            year={detail.latest.year}
+            edition={detail.latest.edition ?? undefined}
+            field="name"
+            oldValue={detail.latest.name ?? ""}
+          />
         </Reveal>
       </section>
 
