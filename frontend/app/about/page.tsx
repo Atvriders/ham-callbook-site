@@ -42,11 +42,20 @@ interface IntegritySummary {
   headline_estimated_accuracy_pct: number | null;
 }
 
+interface FieldCompleteness {
+  total_rows: number;
+  name_pct: number;
+  city_pct: number;
+  state_pct: number;
+  note: string;
+}
+
 interface IntegrityResponse {
   summary: IntegritySummary;
   xref_sources: unknown[];
   sample_audits: unknown[];
   sample_confidence: unknown[];
+  field_completeness?: FieldCompleteness | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -825,6 +834,88 @@ export default async function AboutPage() {
             />
           ))}
         </div>
+
+        {/* Per-field trust — honest coverage so a reader knows what to trust. */}
+        {integrity?.field_completeness && (
+          <div
+            style={{
+              marginTop: "1.5rem",
+              border: `1px solid ${colors.border}`,
+              borderRadius: "0.5rem",
+              padding: "1.5rem",
+              background: "rgba(255,255,255,0.015)",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: fontStacks.mono,
+                fontSize: "0.65rem",
+                letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                color: colors.text_dim,
+                marginBottom: "1rem",
+              }}
+            >
+              Per-field coverage ·{" "}
+              {integrity.field_completeness.total_rows.toLocaleString()} rows
+            </div>
+            {(
+              [
+                ["Name", integrity.field_completeness.name_pct],
+                ["City", integrity.field_completeness.city_pct],
+                ["State", integrity.field_completeness.state_pct],
+              ] as [string, number][]
+            ).map(([label, pct]) => (
+              <div
+                key={label}
+                style={{ marginBottom: "0.75rem" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontFamily: fontStacks.mono,
+                    fontSize: "0.8rem",
+                    marginBottom: "0.3rem",
+                  }}
+                >
+                  <span style={{ color: colors.text }}>{label}</span>
+                  <span style={{ color: colors.accent }}>
+                    {pct.toFixed(1)}%
+                  </span>
+                </div>
+                <div
+                  style={{
+                    height: "0.5rem",
+                    borderRadius: "0.25rem",
+                    background: "rgba(255,255,255,0.06)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${Math.max(0, Math.min(100, pct))}%`,
+                      background: colors.accent,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            <p
+              style={{
+                marginTop: "1rem",
+                marginBottom: 0,
+                fontFamily: fontStacks.body,
+                fontSize: "0.8rem",
+                lineHeight: 1.6,
+                color: colors.text_dim,
+              }}
+            >
+              {integrity.field_completeness.note}
+            </p>
+          </div>
+        )}
       </section>
 
       <div style={{ maxWidth: "min(80rem, 100%)", margin: "0 auto", padding: "0 2rem" }}>

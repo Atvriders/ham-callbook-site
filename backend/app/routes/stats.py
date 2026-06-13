@@ -249,11 +249,24 @@ class IntegritySummary(BaseModel):
     headline_estimated_accuracy_pct: Optional[float]
 
 
+class FieldCompleteness(BaseModel):
+    """Honest per-field coverage across the whole corpus. 'Populated and sane'
+    rates so a reader knows, at a glance, how much to trust each column. State
+    counts only valid 2-letter codes (a wrong state was worse than none, so
+    impossible/garbled states were neutralised to NULL)."""
+    total_rows: int
+    name_pct: float
+    city_pct: float
+    state_pct: float
+    note: str
+
+
 class IntegrityResponse(BaseModel):
     summary: IntegritySummary
     xref_sources: List[IntegritySource]
     sample_audits: List[IntegrityAudit]
     sample_confidence: List[IntegritySampleConfidence]
+    field_completeness: Optional[FieldCompleteness] = None
 
 
 # ---------------------------------------------------------------------------
@@ -592,11 +605,40 @@ def get_integrity(con: sqlite3.Connection = Depends(get_db)) -> IntegrityRespons
         headline_estimated_accuracy_pct=headline,
     )
 
+    # ---- per-field completeness (single aggregate scan; cached via TTL) ----
+    field_completeness: Optional[FieldCompleteness] = None
+    try:
+        fc = con.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN name  IS NOT NULL AND TRIM(name)  <> '' THEN 1 ELSE 0 END) AS name_pop, "
+            "SUM(CASE WHEN city  IS NOT NULL AND TRIM(city)  <> '' THEN 1 ELSE 0 END) AS city_pop, "
+            "SUM(CASE WHEN state IS NOT NULL AND LENGTH(TRIM(state)) = 2 THEN 1 ELSE 0 END) AS state_pop "
+            "FROM entries"
+        ).fetchone()
+        total = int(fc["total"] or 0)
+        if total:
+            field_completeness = FieldCompleteness(
+                total_rows=total,
+                name_pct=round(int(fc["name_pop"] or 0) / total * 100, 2),
+                city_pct=round(int(fc["city_pop"] or 0) / total * 100, 2),
+                state_pct=round(int(fc["state_pop"] or 0) / total * 100, 2),
+                note=(
+                    "Per-field 'populated and valid' coverage across all editions. "
+                    "Name is near-complete and the highest-trust field; the lower state "
+                    "figure reflects dense 1960s printings that omitted state per line. "
+                    "Recovered state comes only from each entry's own OCR text "
+                    "(district-validated); uncertain values are left blank rather than guessed."
+                ),
+            )
+    except sqlite3.Error:
+        field_completeness = None
+
     resp = IntegrityResponse(
         summary=summary,
         xref_sources=xref_sources,
         sample_audits=sample_audits,
         sample_confidence=sample_confidence,
+        field_completeness=field_completeness,
     )
     _integrity_cache["integrity"] = resp
     return resp

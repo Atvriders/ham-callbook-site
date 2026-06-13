@@ -61,21 +61,32 @@ the work, so here is exactly where the data comes from and how good it is.
 4. Name and city dictionaries (built from 1.6M FCC records) repair common
    OCR substitutions (`Lamb8rt`→`Lambert`, `~Ianhattan`→`Manhattan`)
 
-**Honest numbers**
+**Honest numbers — per field, not one headline**
 
-- Name accuracy on post-1963 editions: **~95–99%** per edition (verified by
-  sample audit against independent OCR + FCC records)
-- Composite field-completeness score (name + city + state populated and
-  sane): **~76%** across all 7.38M rows — the gap is dominated by dense
-  1960s editions where the printed page itself omits or truncates
-  city/state, and by pre-1928 records that predate any cross-checkable
-  database
+A single accuracy figure hides that the fields differ wildly in how
+trustworthy they are. Live coverage (`GET /api/stats/integrity` →
+`field_completeness`, also shown on the [/about](frontend/app/about) page):
+
+| Field | Populated & valid | Notes |
+|---|---|---|
+| **Name** | **~99.3%** | The highest-trust field; ~96–99% verified correct on sample-audited editions |
+| **City** | **~92.0%** | Address-bleed and ZIP-as-city mis-parses neutralised to blank rather than shown wrong |
+| **State** | **~67.4%** | The hard field — dense 1960s printings omit state per line; see recovery policy below |
+
+**State recovery policy (trust over coverage).** Missing state is recovered
+**only** from each entry's *own* OCR text (the trailing state token), and only
+when it is consistent with the callsign's pre-1978 call district — ~148K rows
+recovered this way at near-100% precision. Inference methods that guess from
+*other* records were tested and **rejected**: same-callsign neighbour-fill was
+~19% wrong on intra-district moves (NY↔NJ, ME↔MA), and city→state geocoding
+~45% wrong in border metros. An uncertain state is left **blank**, never
+guessed — a reader is never silently shown a wrong state.
+
 - Pre-1928 records are best-effort transcriptions of government station
   lists; no external source exists to verify them
 - Every correction is logged. The `entries_overrides.csv` mechanism keeps
-  hand fixes and ULS-derived fixes reviewable and reproducible across
-  rebuilds
-- `GET /api/stats/integrity` exposes the audit data live
+  hand fixes and recovery passes reviewable and reproducible across rebuilds
+- `GET /api/stats/integrity` exposes the per-field coverage and audit data live
 
 Found an error? Open an issue with the callsign + year — corrections land in
 the overrides file and survive every rebuild.
