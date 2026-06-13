@@ -59,18 +59,58 @@ APP_CONN: Optional[sqlite3.Connection] = None
 _ENTRY_COUNT: Optional[int] = None
 
 
-def _build_uri(db_path: str) -> str:
+def _build_uri(db_path: str, immutable: bool = False) -> str:
     """Build a SQLite URI that opens the file read-only.
 
-    Using the ``file:`` URI form lets us pass ``mode=ro`` which makes the
-    OS-level open use ``O_RDONLY`` — this is what allows the bind mount to
-    be mounted read-only without SQLite tripping on its journal file.
+    ``mode=ro`` makes the OS-level open use ``O_RDONLY``. ``immutable=1``
+    additionally tells SQLite the file (and its journal) cannot change while
+    open, so it skips all locking and the WAL ``-shm``/``-wal`` machinery —
+    which is the ONLY way to open a WAL-mode database that lives on a
+    read-only mount (e.g. ``./data:/data:ro`` in docker-compose). Without it,
+    opening a WAL DB on a read-only directory fails with "attempt to write a
+    readonly database" because SQLite cannot create the ``-shm`` file.
     """
-    # ``immutable=1`` would be even faster (skips locking, skips WAL) but
-    # we deliberately do NOT set it: the Data phase may rebuild the DB and
-    # docker-compose restart should pick up the new file without us having
-    # to also bounce mmap assumptions. ``mode=ro`` is the sweet spot.
-    return f"file:{db_path}?mode=ro"
+    return f"file:{db_path}?mode=ro" + ("&immutable=1" if immutable else "")
+
+
+def _ro_connect(db_path: str) -> sqlite3.Connection:
+    """Open read-only, transparently falling back to ``immutable=1`` when the
+    database is a WAL file on a read-only mount.
+
+    We prefer plain ``mode=ro`` (so a rebuilt DB is picked up on restart
+    without immutable's "file never changes" assumption). But if the data
+    directory is read-only and the DB is in WAL mode, the first access raises
+    SQLITE_READONLY/CANTOPEN — we then retry with ``immutable=1``, which works
+    on read-only media. A static archive DB swapped + restarted out of band
+    satisfies immutable's contract for the container's lifetime.
+    """
+    try:
+        conn = sqlite3.connect(
+            _build_uri(db_path),
+            uri=True,
+            check_same_thread=False,
+            isolation_level=None,
+            timeout=30.0,
+        )
+        # Reading the header (schema_version) forces SQLite to consult the
+        # WAL, which is what fails on a read-only mount — so failures surface
+        # HERE, in the try, rather than later on the first real query. (A bare
+        # "SELECT 1" never touches the file and would not trigger it.)
+        conn.execute("PRAGMA schema_version")
+        return conn
+    except sqlite3.OperationalError as exc:
+        msg = str(exc).lower()
+        if "readonly" not in msg and "unable to open" not in msg:
+            raise
+        conn = sqlite3.connect(
+            _build_uri(db_path, immutable=True),
+            uri=True,
+            check_same_thread=False,
+            isolation_level=None,
+            timeout=30.0,
+        )
+        conn.execute("SELECT 1")
+        return conn
 
 
 def open_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
@@ -83,13 +123,7 @@ def open_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
     request threads is the documented pattern for read-mostly SQLite
     services and avoids the open/close cost on the hot path.
     """
-    conn = sqlite3.connect(
-        _build_uri(db_path),
-        uri=True,
-        check_same_thread=False,
-        isolation_level=None,  # autocommit; we only read.
-        timeout=30.0,
-    )
+    conn = _ro_connect(db_path)
     conn.row_factory = sqlite3.Row
 
     # PRAGMAs that matter for a large read-only FTS5 workload:

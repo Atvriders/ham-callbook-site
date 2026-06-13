@@ -24,11 +24,18 @@ services:
       NAME_TRENDS_PATH: /data/name_trends.json
       DATA_PORTAL_MANIFEST_PATH: /data/downloads/MANIFEST.json
       DATA_PORTAL_DOWNLOADS_PATH: /data/downloads
-      # Corrections desk writable store (NOT read-only — separate from the DB):
-      SUBMISSIONS_DB_PATH: /data/submissions.sqlite
+      # Corrections desk writable store. Lives on its OWN writable volume,
+      # NOT inside the read-only ./data mount — SQLite must be able to create
+      # the submissions -wal/-shm sidecars, which a read-only dir forbids.
+      SUBMISSIONS_DB_PATH: /srv/submissions/submissions.sqlite
     volumes:
+      # Archive data is mounted read-only. The image opens the (WAL-mode) DB
+      # with an immutable fallback so read-only mounts work; if you are on an
+      # older image and hit "container unhealthy", drop the ":ro".
       - ./data:/data:ro
-      - ./data/submissions.sqlite:/data/submissions.sqlite:rw
+      # Writable named volume for the corrections store (Docker owns perms, so
+      # no file-vs-directory or uid gotchas). Do NOT bind-mount a single file.
+      - submissions_data:/srv/submissions
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s
@@ -65,3 +72,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  submissions_data:

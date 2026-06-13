@@ -82,8 +82,11 @@ def _connect_ro() -> sqlite3.Connection:
             },
         )
 
-    uri = f"file:{DB_PATH}?mode=ro"
-    conn = sqlite3.connect(uri, uri=True, timeout=5.0)
+    # Use the shared opener so the probe handles a WAL DB on a read-only
+    # mount the same way the app connection does (mode=ro, immutable fallback).
+    from app.db import _ro_connect
+
+    conn = _ro_connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     # Plenty of cache for the introspection queries without hogging RAM
     # past the request lifetime (closed in the ``finally`` of each handler).
