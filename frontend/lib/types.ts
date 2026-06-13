@@ -283,6 +283,89 @@ export interface ClubHistoryItem {
   raw_name: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Defunct Clubs — precomputed artifact types for the Silent Keys feature.
+// ---------------------------------------------------------------------------
+
+/**
+ * One callsign's fate as computed during defunct-club precompute.
+ * - dead_missing: never in ULS (pre-digital era assignment)
+ * - dead_expired: ULS status 'E'
+ * - dead_cancelled: ULS status 'C' or 'T'
+ * - reissued_individual: ULS status 'A' but reassigned to a person, not a club
+ */
+export type CallsignFate =
+  | "dead_missing"
+  | "dead_expired"
+  | "dead_cancelled"
+  | "reissued_individual";
+
+export interface DefunctCallsignFate {
+  callsign: string;
+  fate: CallsignFate;
+  uls_status: string | null;
+}
+
+/**
+ * Era sub-class enum. Four buckets based on when the club last appeared.
+ */
+export type EraClass =
+  | "pre_war"
+  | "mid_century"
+  | "incentive_licensing"
+  | "post_boom";
+
+/**
+ * Summary row for the /clubs/defunct listing page.
+ */
+export interface DefunctClubSummary {
+  slug: string;
+  display_name: string;
+  first_year: number | null;
+  last_year: number | null;
+  span_years: number;
+  appearance_count: number;
+  callsign_count: number;
+  dominant_state: string | null;
+  dominant_city: string | null;
+  club_type: string | null;
+  era_class: EraClass;
+}
+
+/**
+ * Detail record for a single defunct club (embedded in the artifact).
+ */
+export interface DefunctClubDetail extends DefunctClubSummary {
+  callsign_fates: DefunctCallsignFate[];
+  years_silent: number;
+}
+
+/**
+ * Facets returned alongside the listing.
+ */
+export interface DefunctFacets {
+  by_state: Record<string, number>;
+  by_era: Record<string, number>;
+}
+
+/**
+ * Full paginated response from GET /api/clubs/defunct.
+ */
+export interface DefunctClubList {
+  total: number;
+  clubs: DefunctClubSummary[];
+  facets: DefunctFacets;
+}
+
+/**
+ * Meta response from GET /api/clubs/defunct/meta.
+ */
+export interface DefunctMeta {
+  total: number;
+  gap_years: number;
+  generated: string;
+}
+
 /**
  * Reverse lookup payload from ``GET /api/callsign/{cs}/club``.
  *

@@ -971,6 +971,112 @@ export default async function ClubsPage({
           </div>
         )}
       </section>
+
+      {/* --- DEFUNCT / SILENT CLUBS entry-point -------------------------------- */}
+      <section
+        style={{
+          padding: "0 2rem",
+          maxWidth: "min(110rem, 100%)",
+          margin: "0 auto 4rem",
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
+        <div
+          style={{
+            marginTop: "3rem",
+            borderTop: `1px solid ${colors.border}`,
+            borderBottom: `1px solid ${colors.border}`,
+            padding: "2rem 0",
+            display: "grid",
+            gridTemplateColumns: "auto 1fr auto",
+            gap: "2rem",
+            alignItems: "center",
+          }}
+        >
+          {/* "SK" memorial glyph */}
+          <div
+            aria-hidden
+            style={{
+              fontFamily: fontStacks.display,
+              fontVariationSettings: '"opsz" 72, "SOFT" 0, "WONK" 1',
+              fontSize: "clamp(3rem, 7vw, 5rem)",
+              fontWeight: 700,
+              fontStyle: "italic",
+              color: colors.accent,
+              opacity: 0.25,
+              letterSpacing: "-0.04em",
+              lineHeight: 1,
+              userSelect: "none",
+            }}
+          >
+            SK
+          </div>
+
+          {/* Lede */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            <span
+              style={{
+                fontFamily: fontStacks.mono,
+                fontSize: "0.6rem",
+                letterSpacing: "0.35em",
+                textTransform: "uppercase",
+                color: colors.text_dim,
+              }}
+            >
+              ·—· SK ·—·
+            </span>
+            <span
+              style={{
+                fontFamily: fontStacks.display,
+                fontVariationSettings: '"opsz" 48, "SOFT" 30',
+                fontSize: "clamp(1rem, 2.5vw, 1.4rem)",
+                fontWeight: 600,
+                color: colors.text,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Defunct &amp; Silent Clubs
+            </span>
+            <span
+              style={{
+                fontFamily: fontStacks.mono,
+                fontSize: "0.78rem",
+                color: colors.text_dim,
+                maxWidth: "52ch",
+                lineHeight: 1.5,
+              }}
+            >
+              Clubs that appeared in the printed callbooks and never returned —
+              cross-referenced against current FCC ULS to confirm every call is dead.
+              1,611 clubs whose last transmission was decades ago.
+            </span>
+          </div>
+
+          {/* CTA */}
+          <a
+            href="/clubs/defunct"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              padding: "0.65rem 1.25rem",
+              border: `1px solid ${colors.accent}`,
+              color: colors.accent,
+              fontFamily: fontStacks.mono,
+              fontSize: "0.75rem",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+              transition: "background 150ms ease, color 150ms ease",
+            }}
+            onMouseEnter={undefined}
+          >
+            View Silent Clubs →
+          </a>
+        </div>
+      </section>
     </main>
   );
 }

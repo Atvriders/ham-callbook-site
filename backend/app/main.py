@@ -60,6 +60,8 @@ from app.routes import records as records_router
 from app.routes import diff as diff_router
 from app.routes import qsl as qsl_router
 from app.routes import data_portal as data_portal_router
+from app.routes import defunct_clubs as defunct_clubs_router
+from app.integrations import defunct_clubs as _defunct_clubs_integration
 
 logger = logging.getLogger("callbook.backend")
 logging.basicConfig(
@@ -98,6 +100,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception:  # pragma: no cover - startup diagnostic
         logger.exception("Failed to query entries count at startup")
         raise
+
+    # Warm the defunct-clubs artifact at startup so the first request is fast.
+    try:
+        _defunct_clubs_integration.ensure_loaded()
+        logger.info(
+            "Defunct-clubs artifact loaded :: total=%d",
+            _defunct_clubs_integration.meta().get("total", 0),
+        )
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load defunct-clubs artifact")
 
     try:
         yield
@@ -191,6 +203,9 @@ app.include_router(records_router.router, tags=["records"])
 app.include_router(diff_router.router, tags=["diff"])
 app.include_router(qsl_router.router, tags=["qsl"])
 app.include_router(data_portal_router.router, tags=["data-portal"])
+# Defunct Clubs — must be registered AFTER clubs_router so /api/clubs/defunct
+# does not conflict with /api/clubs/{slug} (FastAPI routes in declaration order).
+app.include_router(defunct_clubs_router.router)
 
 
 # --------------------------------------------------------------------------- #

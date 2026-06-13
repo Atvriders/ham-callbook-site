@@ -33,6 +33,9 @@ import type {
   ClubFull,
   ClubHistoryItem,
   ClubSummary,
+  DefunctClubList,
+  DefunctClubDetail,
+  DefunctMeta,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -211,6 +214,52 @@ export function clubRelated(
     `/api/club/${encodeURIComponent(slug)}/related${query}`,
     init,
   );
+}
+
+// ---------------------------------------------------------------------------
+// /api/clubs/defunct — Silent Keys feature.
+// ---------------------------------------------------------------------------
+
+/**
+ * Paginated list of defunct clubs with facets.
+ * Passes through state/era filters; limit default matches backend default.
+ */
+export function clubsDefunct(
+  opts?: {
+    state?: string;
+    era?: string;
+    limit?: number;
+    offset?: number;
+  },
+  init?: RequestInit,
+): Promise<DefunctClubList> {
+  const query = qs({
+    state: opts?.state ?? null,
+    era: opts?.era ?? null,
+    limit: opts?.limit ?? null,
+    offset: opts?.offset ?? null,
+  });
+  return apiGet<DefunctClubList>(`/api/clubs/defunct${query}`, init);
+}
+
+/**
+ * Single defunct club detail record (callsign fates, era, years silent).
+ */
+export function clubDefunct(
+  slug: string,
+  init?: RequestInit,
+): Promise<DefunctClubDetail> {
+  return apiGet<DefunctClubDetail>(
+    `/api/clubs/defunct/${encodeURIComponent(slug)}`,
+    init,
+  );
+}
+
+/**
+ * Metadata for the page header (total, gap_years, generated timestamp).
+ */
+export function clubsDefunctMeta(init?: RequestInit): Promise<DefunctMeta> {
+  return apiGet<DefunctMeta>(`/api/clubs/defunct/meta`, init);
 }
 
 // ---------------------------------------------------------------------------
