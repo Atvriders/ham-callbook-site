@@ -7,9 +7,23 @@ services:
       DB_PATH: /data/USA_Ham_Callbooks.sqlite
       ULS_JSON_PATH: /data/uls.json
       ULS_HISTORY_PATH: /data/uls_history.json
+      # Wave 1-4 precomputed artifacts (all live in the ./data mount):
+      LEADERBOARDS_PATH: /data/leaderboards.json
+      EDITION_DIFF_PATH: /data/edition_diff.json
+      DEFUNCT_CLUBS_PATH: /data/defunct_clubs.json
+      PRINTED_LINEAGE_PATH: /data/printed_lineage.json
+      PHONETIC_INDEX_PATH: /data/phonetic_index.json
+      ADDRESS_CLUSTERS_DB_PATH: /data/address_clusters.sqlite
+      HOUSEHOLDS_PATH: /data/households.json
+      COHORTS_PATH: /data/cohorts.json
       NAME_TRENDS_PATH: /data/name_trends.json
+      DATA_PORTAL_MANIFEST_PATH: /data/downloads/MANIFEST.json
+      DATA_PORTAL_DOWNLOADS_PATH: /data/downloads
+      # Corrections desk writable store (NOT read-only — separate from the DB):
+      SUBMISSIONS_DB_PATH: /data/submissions.sqlite
     volumes:
       - ./data:/data:ro
+      - ./data/submissions.sqlite:/data/submissions.sqlite:rw
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s

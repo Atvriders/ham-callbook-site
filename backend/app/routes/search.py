@@ -39,7 +39,13 @@ from pydantic import BaseModel, Field
 # DB connection (thread-local, read-only).
 # ---------------------------------------------------------------------------
 
-DB_PATH = os.environ.get("HAM_DB_PATH") or os.environ.get("DB_PATH", "/data/USA_Ham_Callbooks.sqlite")
+# Reuse db.py's resolved path — it has a project-relative fallback that finds
+# the DB even when no DB_PATH env var is set (which search.py's old hardcoded
+# "/data/..." default did not, causing /api/search to 500 while /api/health
+# stayed up). HAM_DB_PATH still wins if explicitly set.
+from app.db import DB_PATH as _DB_DEFAULT  # noqa: E402
+
+DB_PATH = os.environ.get("HAM_DB_PATH") or os.environ.get("DB_PATH") or _DB_DEFAULT
 
 _LOCAL = threading.local()
 
