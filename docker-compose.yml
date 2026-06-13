@@ -1,11 +1,45 @@
 # Production-style compose: pulls pre-built images from a container registry.
 #
+# SELF-CONTAINED: `docker compose up -d` works with no manual data handling —
+# the data-init service downloads the ~3 GB archive into a named volume on the
+# first run (the DB is too big for git/the images). Subsequent runs skip it.
+#
 # Registry is selectable via ${REGISTRY} (default = GitHub Container Registry):
-#   default (GHCR):    docker compose pull && docker compose up -d
-#   Gitea registry:    REGISTRY=git.waterburp.com/atvriders docker compose pull && \
-#                      REGISTRY=git.waterburp.com/atvriders docker compose up -d
+#   default (GHCR):    docker compose up -d
+#   Gitea registry:    REGISTRY=git.waterburp.com/atvriders docker compose up -d
 # For local dev with source rebuilds, use docker-compose.dev.yml.
 services:
+  # One-shot bootstrap: populate the app_data volume with the archive data the
+  # first time (DB ~1.4 GB gzipped + feature artifacts). Idempotent — if the DB
+  # is already in the volume it exits immediately. Pin DATA_TAG to a release.
+  data-init:
+    image: alpine:3.20
+    environment:
+      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v1}"
+    volumes:
+      - app_data:/data
+    command:
+      - sh
+      - -ec
+      - |
+        if [ -f /data/USA_Ham_Callbooks.sqlite ]; then
+          echo "[data-init] data already present — skipping download."; exit 0
+        fi
+        apk add --no-cache curl >/dev/null
+        echo "[data-init] downloading database (~860 MB gz, one time)…"
+        curl -fSL "$$DATA_BASE/USA_Ham_Callbooks.sqlite.gz" -o /data/db.gz
+        echo "[data-init] extracting database…"
+        # Extract to a temp name and rename only on success, so an interrupted
+        # run never leaves a partial DB under the real name (which the gate
+        # check above would then wrongly treat as 'present').
+        gunzip -c /data/db.gz > /data/db.partial && mv /data/db.partial /data/USA_Ham_Callbooks.sqlite
+        rm -f /data/db.gz
+        echo "[data-init] downloading feature artifacts…"
+        curl -fSL "$$DATA_BASE/callbook-artifacts.tar.gz" -o /data/art.tgz
+        tar xzf /data/art.tgz -C /data && rm -f /data/art.tgz
+        echo "[data-init] data ready: $$(ls /data | wc -l) items."
+    restart: "no"
+
   backend:
     image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-backend:${TAG:-latest}
     environment:
@@ -29,13 +63,17 @@ services:
       # the submissions -wal/-shm sidecars, which a read-only dir forbids.
       SUBMISSIONS_DB_PATH: /srv/submissions/submissions.sqlite
     volumes:
-      # Archive data is mounted read-only. The image opens the (WAL-mode) DB
-      # with an immutable fallback so read-only mounts work; if you are on an
-      # older image and hit "container unhealthy", drop the ":ro".
-      - ./data:/data:ro
+      # Archive data, auto-populated by data-init, mounted read-only. The image
+      # opens the (WAL-mode) DB with an immutable fallback so :ro works.
+      # To use your OWN data instead, replace this with a bind mount:
+      #   - /path/to/your/data:/data:ro
+      - app_data:/data:ro
       # Writable named volume for the corrections store (Docker owns perms, so
       # no file-vs-directory or uid gotchas). Do NOT bind-mount a single file.
       - submissions_data:/srv/submissions
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s
@@ -73,3 +111,4 @@ volumes:
   caddy_data:
   caddy_config:
   submissions_data:
+  app_data:

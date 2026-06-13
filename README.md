@@ -124,26 +124,27 @@ Container Registry (`ghcr.io/atvriders/ham-callbook-*`, the compose default)
 and to the Gitea registry. The GHCR images are public, so no `docker login` is
 needed to pull them.
 
+**Self-contained — no manual data handling.** The ~3 GB archive data is not
+in git or the images (the DB alone is 2.6 GB), so a one-shot `data-init`
+service downloads it from the [`data-v1` release](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v1)
+into a named volume on the first `up`. Subsequent runs skip the download.
+
 ```bash
 git clone https://github.com/Atvriders/ham-callbook-site
 cd ham-callbook-site
 
-# Data files are NOT in git (~3 GB total). Place them in ./data/:
-#   USA_Ham_Callbooks.sqlite   (2.7 GB — the archive DB, FTS5 + clubs included)
-#   uls.json                   (185 MB — current FCC snapshot)
-#   uls_history.json           (36 MB — lineage + license chains)
-#   leaderboards.json          (105 KB — Century Club rankings)
-#   edition_diff.json          (47 KB — edition-pair churn stats)
-#   downloads/                 (open-data exports + MANIFEST.json)
-
-docker compose pull          # pulls from ghcr.io/atvriders by default
 docker compose up -d
-# site at http://<host>:3017    (override: SITE_PORT=80 docker compose up -d)
+# First run downloads ~1.8 GB (DB + artifacts) into the app_data volume,
+# then the stack starts. Watch it:  docker compose logs -f data-init
+# Site at http://<host>:3017        (override: SITE_PORT=80 docker compose up -d)
 
-# To pull from the Gitea registry instead:
-#   export REGISTRY=git.waterburp.com/atvriders
-#   docker login git.waterburp.com && docker compose pull && docker compose up -d
+# To pull images from the Gitea registry instead of GHCR:
+#   REGISTRY=git.waterburp.com/atvriders docker compose up -d
 ```
+
+To use **your own** data instead of the download, replace the backend's
+`app_data:/data:ro` volume with a bind mount to a directory containing the
+files (`USA_Ham_Callbooks.sqlite` + the artifact JSONs).
 
 `docker-compose.dev.yml` builds the images from source instead:
 `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
