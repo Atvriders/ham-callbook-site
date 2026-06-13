@@ -251,10 +251,16 @@ would exist without them.
   dataset, used (gender-association only, with explicit confidence bands) for
   the YL-index estimate.
 
-**Live on-air activity**
+**International QSL routing**
+- **Radio Amateur Callbook ISO QSL-manager CDs** (1999, 2003) — international
+  QSL routing records, integrated into the callbook corpus.
+
+**Live activity & current-operator cross-reference**
 - **PSK Reporter** ([pskreporter.info](https://pskreporter.info)) and the
   **Reverse Beacon Network** ([reversebeacon.net](https://reversebeacon.net))
   — recent spot data for the live-activity panels.
+- **QRZ.com** ([qrz.com](https://www.qrz.com)) — public-profile pages, queried
+  live for modern callsign cross-reference and current-operator lookup.
 
 **A note on the publication**
 *Radio Amateur Callbook* is a historic publication. This project exists for
