@@ -55,7 +55,9 @@ def _conn() -> sqlite3.Connection:
     c = getattr(_LOCAL, "conn", None)
     if c is not None:
         return c
-    uri = f"file:{DB_PATH}?mode=ro"
+    # immutable=1 so this read-only opener works when the DB (WAL mode) sits on
+    # a read-only mount (./data:/data:ro) — plain mode=ro can't create the -shm.
+    uri = f"file:{DB_PATH}?mode=ro&immutable=1"
     c = sqlite3.connect(uri, uri=True, check_same_thread=False)
     c.row_factory = sqlite3.Row
     c.executescript(

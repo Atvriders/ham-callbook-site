@@ -48,7 +48,8 @@ except Exception:
 
     @lru_cache(maxsize=1)
     def _open_ro() -> sqlite3.Connection:
-        uri = f"file:{_DB_PATH}?mode=ro"
+        # immutable=1 so a WAL-mode DB on a read-only mount opens (see search.py).
+        uri = f"file:{_DB_PATH}?mode=ro&immutable=1"
         conn = sqlite3.connect(uri, uri=True, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.executescript(

@@ -278,8 +278,8 @@ async def resolve_adif(file: UploadFile = File(...)) -> AdifAnalysisResult:
 
     unique_list = sorted(unique_bare)
 
-    # DB batch query
-    conn = sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True)
+    # DB batch query (immutable=1 so a WAL DB on a read-only mount opens)
+    conn = sqlite3.connect(f"file:{_DB_PATH}?mode=ro&immutable=1", uri=True)
     try:
         archive_map = _resolve_calls(unique_list, conn)
     finally:

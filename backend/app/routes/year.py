@@ -67,7 +67,9 @@ def _get_conn() -> sqlite3.Connection:
         # ``uri=True`` so we can request a read-only handle that won't ever
         # mutate the source database, even by accident.
         conn = sqlite3.connect(
-            f"file:{db_path}?mode=ro",
+            # immutable=1 so a WAL-mode DB on a read-only mount opens (mode=ro
+            # alone needs to create the -shm, which a :ro dir forbids).
+            f"file:{db_path}?mode=ro&immutable=1",
             uri=True,
             check_same_thread=False,
             timeout=15.0,

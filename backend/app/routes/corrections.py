@@ -116,7 +116,8 @@ def _main_conn() -> sqlite3.Connection:
             return c
         except sqlite3.ProgrammingError:
             pass
-    uri = f"file:{DB_PATH}?mode=ro"
+    # immutable=1 so the read-only archive DB (WAL) opens on a read-only mount.
+    uri = f"file:{DB_PATH}?mode=ro&immutable=1"
     conn = sqlite3.connect(uri, uri=True, timeout=10.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA query_only = ON")
