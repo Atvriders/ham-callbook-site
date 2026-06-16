@@ -22,6 +22,11 @@ RUN apt-get update \
 COPY requirements.txt /srv/requirements.txt
 RUN pip install --no-cache-dir -r /srv/requirements.txt
 
+# Create the runtime user BEFORE baking data, so the data layer can be chowned
+# in place. Chowning /data in a later layer would copy all ~2.6 GB up into a
+# second layer (doubling the image).
+RUN useradd --system --uid 1001 --home /srv --shell /usr/sbin/nologin app
+
 # ---- DATA (stable, cache-friendly layer) -------------------------------------
 # Pulled from the data-v1 release at build time (it is too big for git). Bump
 # DATA_TAG to bake a newer dataset. Kept above COPY app so editing code reuses
@@ -36,13 +41,11 @@ RUN set -eux; \
     curl -fSL "${DATA_BASE}/callbook-artifacts.tar.gz" -o art.tgz; \
     tar xzf art.tgz; \
     rm -f art.tgz; \
-    test -f /data/USA_Ham_Callbooks.sqlite
+    test -f /data/USA_Ham_Callbooks.sqlite; \
+    chown -R app:app /data
 
 # ---- CODE (changes often) ----------------------------------------------------
-COPY app /srv/app
-
-RUN useradd --system --uid 1001 --home /srv --shell /usr/sbin/nologin app \
- && chown -R app:app /srv /data
+COPY --chown=app:app app /srv/app
 USER app
 
 # All artifact paths default under /data; the DB is baked in at this path.
