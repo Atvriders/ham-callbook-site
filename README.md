@@ -146,6 +146,18 @@ To use **your own** data instead of the download, replace the backend's
 `app_data:/data:ro` volume with a bind mount to a directory containing the
 files (`USA_Ham_Callbooks.sqlite` + the artifact JSONs).
 
+**Baked-in data (all-in-one).** Prefer a single self-contained image with no
+download step or data volume? Use the `ham-callbook-backend-full` image (DB +
+artifacts baked in, ~3 GB) via the baked compose:
+
+```bash
+docker compose -f docker-compose.baked.yml up -d
+```
+
+Trade-off: the image is large and a backend code change means re-pulling it,
+whereas the default keeps data in a volume and pulls a small image. Pick per
+deploy.
+
 `docker-compose.dev.yml` builds the images from source instead:
 `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`
 

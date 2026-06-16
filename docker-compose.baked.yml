@@ -1,0 +1,53 @@
+# All-in-one variant: the backend image has the archive DB + artifacts BAKED IN,
+# so there is no data-init step and no data volume — just pull and run.
+#
+#   docker compose -f docker-compose.baked.yml up -d
+#
+# Trade-off vs the default compose: the backend image is ~3 GB and a backend
+# code change means re-pulling it. If you'd rather keep data in a volume and
+# pull a small image, use the default docker-compose.yml (data auto-downloads).
+services:
+  backend:
+    image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-backend-full:${TAG:-latest}
+    environment:
+      # DB + all artifact paths are baked into the image's ENV (under /data).
+      # Only the writable corrections store needs to live outside the read-only
+      # image filesystem:
+      SUBMISSIONS_DB_PATH: /srv/submissions/submissions.sqlite
+    volumes:
+      - submissions_data:/srv/submissions
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-frontend:${TAG:-latest}
+    environment:
+      NEXT_PUBLIC_API_BASE: /api
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: ${REGISTRY:-ghcr.io/atvriders}/ham-callbook-caddy:${TAG:-latest}
+    ports:
+      - "${SITE_PORT:-3017}:80"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  submissions_data:
