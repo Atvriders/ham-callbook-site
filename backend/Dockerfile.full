@@ -30,8 +30,9 @@ ARG DATA_TAG=data-v1
 ARG DATA_BASE=https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG}
 RUN set -eux; \
     mkdir -p /data; cd /data; \
-    curl -fSL "${DATA_BASE}/USA_Ham_Callbooks.sqlite.gz" -o db.gz; \
-    gunzip db.gz; \
+    # keep the .gz name so gunzip yields USA_Ham_Callbooks.sqlite (NOT "db")
+    curl -fSL "${DATA_BASE}/USA_Ham_Callbooks.sqlite.gz" -o USA_Ham_Callbooks.sqlite.gz; \
+    gunzip USA_Ham_Callbooks.sqlite.gz; \
     curl -fSL "${DATA_BASE}/callbook-artifacts.tar.gz" -o art.tgz; \
     tar xzf art.tgz; \
     rm -f art.tgz; \
