@@ -308,7 +308,7 @@ interface CurrentHolder {
 // API base + fetch helper (mirrors lib/club_api.ts behaviour).
 // ---------------------------------------------------------------------------
 
-const API_BASE: string = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(
+const API_BASE: string = (typeof window === "undefined" ? (process.env.INTERNAL_API_BASE ?? "http://backend:8000") : "").replace(
   /\/+$/,
   "",
 );
@@ -2432,7 +2432,7 @@ import type { Metadata } from "next";
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { cs: csRaw } = await params;
   const callsign = decodeURIComponent(csRaw ?? "").toUpperCase();
-  const API_BASE_META: string = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/+$/, "");
+  const API_BASE_META: string = (typeof window === "undefined" ? (process.env.INTERNAL_API_BASE ?? "http://backend:8000") : "").replace(/\/+$/, "");
   return {
     title: callsign,
     openGraph: {

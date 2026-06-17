@@ -75,7 +75,7 @@ function normDecade(raw: string | undefined): number | undefined {
 }
 
 const INTERNAL_BASE =
-  process.env.INTERNAL_API_BASE ?? "http://localhost:8000";
+  process.env.INTERNAL_API_BASE ?? "http://backend:8000";
 
 async function fetchPeople(params: {
   name: string;

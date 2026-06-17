@@ -116,7 +116,7 @@ function normState(raw: string | undefined): string | undefined {
  * which is the production deployment shape (Caddy proxies /api → FastAPI).
  * Mirrors the convention in `lib/club_api.ts` so behaviour is consistent.
  */
-const API_BASE: string = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(
+const API_BASE: string = (typeof window === "undefined" ? (process.env.INTERNAL_API_BASE ?? "http://backend:8000") : "").replace(
   /\/+$/,
   "",
 );

@@ -79,8 +79,9 @@ export async function generateMetadata({
 
 async function fetchStory(cs: string): Promise<StoryResponse | null> {
   const base =
-    process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ??
-    "http://localhost:8000";
+    typeof window === "undefined"
+      ? (process.env.INTERNAL_API_BASE ?? "http://backend:8000")
+      : "";
   const url = `${base}/api/story/${encodeURIComponent(cs.toUpperCase())}`;
   try {
     const res = await fetch(url, { cache: "no-store" });

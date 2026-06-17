@@ -41,7 +41,7 @@ interface WorstResponse {
 // Fetch
 // ---------------------------------------------------------------------------
 
-const INTERNAL_BASE = process.env.INTERNAL_API_BASE ?? "http://localhost:8000";
+const INTERNAL_BASE = process.env.INTERNAL_API_BASE ?? "http://backend:8000";
 
 async function fetchWorst(page: number, edition?: string): Promise<WorstResponse> {
   const params = new URLSearchParams({ page: String(page), page_size: "40" });

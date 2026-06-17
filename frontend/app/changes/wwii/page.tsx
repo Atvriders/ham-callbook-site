@@ -14,7 +14,9 @@ import { colors, fontStacks } from "../../../lib/design";
 export const dynamic = "force-dynamic";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "http://localhost:8000/api";
+  typeof window === "undefined"
+    ? (process.env.INTERNAL_API_BASE ?? "http://backend:8000") + "/api"
+    : "/api";
 
 interface WwiiCohort {
   pre_war_edition: string;

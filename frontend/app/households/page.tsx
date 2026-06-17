@@ -45,7 +45,7 @@ function firstParam(v: string | string[] | undefined): string | undefined {
   return v && v.length > 0 ? v : undefined;
 }
 
-const INTERNAL_BASE = process.env.INTERNAL_API_BASE ?? "http://localhost:8000";
+const INTERNAL_BASE = process.env.INTERNAL_API_BASE ?? "http://backend:8000";
 
 const PAGE_SIZE = 50;
 
