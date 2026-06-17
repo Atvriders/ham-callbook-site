@@ -71,8 +71,8 @@ export const metadata: Metadata = {
 function Nav() {
   const items = [
     { href: "/search", label: "Search", Icon: Search },
-    { href: "/calls", label: "Callsigns", Icon: Radio },
-    { href: "/editions", label: "Editions", Icon: BookOpen },
+    { href: "/browse", label: "Callsigns", Icon: Radio },
+    { href: "/browse", label: "Editions", Icon: BookOpen },
     { href: "/clubs", label: "Clubs", Icon: Users },
     { href: "/stats", label: "Stats", Icon: BarChart3 },
     { href: "/records", label: "Records", Icon: Trophy },
@@ -166,7 +166,7 @@ function Footer() {
               <Link href="/search">Search the archive</Link>
             </li>
             <li>
-              <Link href="/editions">Browse editions</Link>
+              <Link href="/browse">Browse editions</Link>
             </li>
             <li>
               <Link href="/stats">Statistics</Link>

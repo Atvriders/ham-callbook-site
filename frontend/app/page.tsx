@@ -684,7 +684,7 @@ type ExploreTile = {
 
 const EXPLORE_TILES: ExploreTile[] = [
   {
-    href: "/years",
+    href: "/browse",
     eyebrow: "Vol I",
     title: "Browse by Year",
     caption:
@@ -693,7 +693,7 @@ const EXPLORE_TILES: ExploreTile[] = [
     motif: "year-bars",
   },
   {
-    href: "/states",
+    href: "/browse",
     eyebrow: "Vol II",
     title: "Browse by State",
     caption:
