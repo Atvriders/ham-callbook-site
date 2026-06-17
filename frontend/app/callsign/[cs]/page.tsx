@@ -113,6 +113,10 @@ interface CallsignHistoryItem {
   city: string | null;
   state: string | null;
   license_class: string | null;
+  // Backend flags a state as a likely OCR misread when it is a one-off outlier
+  // sandwiched between a different, agreeing state in the callsign's history.
+  state_suspect?: boolean;
+  state_consensus?: string | null;
 }
 
 interface HolderGroup {
@@ -1312,7 +1316,36 @@ function AppearancesTable({ history, showSource = false }: { history: CallsignHi
               borderBottom: `1px solid ${colors.border}`,
             }}
           >
-            {cleanOCRState(row.city, row.state) || "—"}
+            {row.state_suspect && row.state_consensus ? (
+              <span
+                title={
+                  `This edition printed "${row.state}". The rest of this ` +
+                  `callsign's history indicates "${row.state_consensus}", so the ` +
+                  `printed value is likely an OCR misread — state accuracy is ` +
+                  `lower on dense mid-century printings. Shown is the value the ` +
+                  `surrounding history suggests.`
+                }
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  color: colors.accent,
+                  cursor: "help",
+                }}
+              >
+                <span aria-hidden style={{ fontSize: "0.85em", lineHeight: 1 }}>
+                  ⚠
+                </span>
+                <span
+                  style={{ color: colors.text_dim, fontStyle: "italic" }}
+                >
+                  {row.state_consensus}
+                  <span aria-hidden style={{ color: colors.accent }}>?</span>
+                </span>
+              </span>
+            ) : (
+              cleanOCRState(row.city, row.state) || "—"
+            )}
           </div>
           <div
             role="cell"

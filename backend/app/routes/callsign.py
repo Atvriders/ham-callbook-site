@@ -45,6 +45,13 @@ class CallsignHistoryItem(BaseModel):
     city: str | None
     state: str | None
     license_class: str | None
+    # State on this edition looks like an OCR misread: the rest of the
+    # callsign's history (the editions immediately before AND after) agrees on
+    # a *different* state. Set only for sandwiched one-off outliers, so genuine
+    # moves (state changes and stays) are never flagged.
+    state_suspect: bool = False
+    # What the surrounding history indicates the state should be (when suspect).
+    state_consensus: str | None = None
 
 
 class LicenseClassPeriod(BaseModel):
@@ -422,7 +429,7 @@ def get_history(
     rows = cur.fetchall()
     if not rows:
         raise HTTPException(status_code=404, detail=f"callsign not found: {callsign}")
-    return [
+    items = [
         CallsignHistoryItem(
             callsign=r["callsign"],
             year=r["year"],
@@ -434,6 +441,31 @@ def get_history(
         )
         for r in rows
     ]
+    _flag_suspect_states(items)
+    return items
+
+
+def _flag_suspect_states(items: list[CallsignHistoryItem]) -> None:
+    """Mark a state as suspect when it is a one-off outlier sandwiched between a
+    different, agreeing state — almost always an OCR misread on a dense/low-
+    accuracy edition, NOT a real move (a move changes state and keeps it).
+
+    For each record with a state, find the nearest state-bearing edition before
+    and after it (chronological order). If both exist, are equal to each other,
+    and differ from this record's state, flag it and record the surrounding
+    consensus. Records at the very start/end (no bracket on one side) are left
+    alone, so we never second-guess a genuine first or most-recent location.
+    """
+    states = [it.state for it in items]
+    n = len(states)
+    for i, st in enumerate(states):
+        if not st:
+            continue
+        prev = next((states[j] for j in range(i - 1, -1, -1) if states[j]), None)
+        nxt = next((states[j] for j in range(i + 1, n) if states[j]), None)
+        if prev and nxt and prev == nxt and prev != st:
+            items[i].state_suspect = True
+            items[i].state_consensus = prev
 
 
 @router.get("/{cs}/holders", response_model=HoldersHistoryResult)
