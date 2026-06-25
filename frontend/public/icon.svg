@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Ham Callbook">
+  <rect x="6" y="6" width="244" height="244" rx="46" fill="#0a0e1a" stroke="#3a3a4d" stroke-width="4"/>
+  <g fill="none" stroke="#ffa30b" stroke-width="16" stroke-linecap="round">
+    <line x1="128" y1="196" x2="128" y2="86"/>
+    <line x1="128" y1="196" x2="82" y2="226" stroke-width="14"/>
+    <line x1="128" y1="196" x2="174" y2="226" stroke-width="14"/>
+    <path d="M94 86a48 48 0 0 1 68 0" stroke-width="14"/>
+    <path d="M70 86a82 82 0 0 1 116 0" stroke-width="14"/>
+  </g>
+  <path d="M105 86a34 34 0 0 1 46 0" fill="none" stroke="#ffd166" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="128" cy="86" r="13" fill="#ffd166"/>
+</svg>

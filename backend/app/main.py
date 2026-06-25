@@ -77,6 +77,7 @@ from app.routes import name_trends as name_trends_router
 from app.routes import gedcom as gedcom_router
 from app.integrations import cohorts as _cohorts_integration
 from app.integrations import name_trends as _name_trends_integration
+from app.integrations import fcc_uls as _fcc_uls_integration
 
 logger = logging.getLogger("callbook.backend")
 logging.basicConfig(
@@ -166,6 +167,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
         logger.exception("Failed to pre-load name-trends artifact")
+
+    # Warm the FCC ULS snapshot so the FIRST current-callsign search doesn't pay
+    # the ~144 MB JSON parse (~2-5 s) on the request thread.
+    try:
+        _fcc_uls_integration.ensure_loaded()
+        logger.info(
+            "FCC ULS snapshot loaded :: records=%s",
+            _fcc_uls_integration.stats().get("record_count", "?"),
+        )
+    except Exception:  # pragma: no cover - non-fatal; endpoints handle absence
+        logger.exception("Failed to pre-load FCC ULS snapshot")
 
     try:
         yield

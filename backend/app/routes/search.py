@@ -35,6 +35,8 @@ from cachetools import TTLCache
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.integrations import fcc_uls
+
 # ---------------------------------------------------------------------------
 # DB connection (thread-local, read-only).
 # ---------------------------------------------------------------------------
@@ -237,6 +239,67 @@ SNIPPET_COL_BY_INTENT = {
 
 
 # ---------------------------------------------------------------------------
+# Current-license (FCC ULS) augmentation.
+# ---------------------------------------------------------------------------
+
+# Label shown in the `edition` slot for the synthetic current-license hit so
+# the UI can clearly distinguish a live ULS record from a printed-callbook row.
+_ULS_EDITION_LABEL = "FCC ULS (current)"
+
+
+def _uls_hit(callsign: str) -> Optional[SearchHit]:
+    """Build a synthetic SearchHit from the in-memory FCC ULS snapshot for an
+    exact callsign, or ``None`` if the snapshot has no entry.
+
+    This is what lets a CURRENT-only callsign (licensed after the last printed
+    callbook, hence absent from the historical FTS corpus) still surface in
+    /api/search. The snapshot is already resident in memory, so this is an
+    O(1) dict lookup + a cheap model build — safe to call on the hot path for
+    callsign-shaped queries only.
+
+    The hit reuses ``kind="callsign"`` (a value the frontend's SearchHit union
+    already understands, so existing click-routing works) and stamps a distinct
+    ``edition`` label plus a "still licensed" snippet so the UI/operator can
+    tell it apart from a printed row. ``year`` carries the ULS grant year (or 0
+    if unknown).
+    """
+    rec = fcc_uls.lookup(callsign)
+    if rec is None:
+        return None
+
+    grant_year = 0
+    if rec.grant_date_iso is not None:
+        grant_year = rec.grant_date_iso.year
+
+    status_label = rec.status_label or "Unknown"
+    name = rec.full_name or None
+    bits: list[str] = [f"{rec.callsign} — current FCC license"]
+    if name:
+        bits.append(name)
+    bits.append(status_label)
+    if rec.grant_date:
+        bits.append(f"granted {rec.grant_date}")
+    snippet = " · ".join(bits)
+
+    # Active licenses score highest (1.0); any other status slightly lower so
+    # historical exact-callsign hits (which carry their own normalized score)
+    # interleave sensibly when both are present.
+    score = 1.0 if rec.is_active else 0.95
+
+    return SearchHit(
+        kind="callsign",
+        score=score,
+        callsign=rec.callsign,
+        year=grant_year,
+        edition=_ULS_EDITION_LABEL,
+        name=name,
+        city=None,
+        state=None,
+        snippet=snippet,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Router.
 # ---------------------------------------------------------------------------
 
@@ -386,6 +449,25 @@ def search(
                 snippet=r["snippet"] or "",
             )
         )
+
+    # ---- Current-license augmentation (FCC ULS) -------------------------
+    # For an exact callsign-shaped query, also surface the live FCC ULS
+    # record so a CURRENT-only callsign — one licensed after the last printed
+    # callbook and therefore absent from the historical FTS corpus — still
+    # returns a hit. Constraints keep this conservative & fast:
+    #   * only the exact `callsign` intent (single O(1) in-memory snapshot get);
+    #   * only the first page (offset == 0), so paging stays a pure corpus walk;
+    #   * skip when a year/state/edition filter is active — those columns
+    #     describe printed editions, which a single ULS record can't satisfy.
+    if intent == "callsign" and offset == 0 and not where_extra:
+        uls_hit = _uls_hit(q_norm.upper())
+        if uls_hit is not None:
+            # Additive: prepend the live record ahead of the historical rows
+            # (which are older printed editions of the same callsign). Bump the
+            # total so the count reflects the extra surfaced result, and trim
+            # back to `limit` so we never overflow the requested page size.
+            hits = ([uls_hit] + hits)[:limit]
+            total += 1
 
     result = SearchResults(
         hits=hits,
