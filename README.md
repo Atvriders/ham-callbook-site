@@ -126,8 +126,12 @@ needed to pull them.
 
 **Self-contained — no manual data handling.** The ~3 GB archive data is not
 in git or the images (the DB alone is 2.6 GB), so a one-shot `data-init`
-service downloads it from the [`data-v1` release](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v1)
-into a named volume on the first `up`. Subsequent runs skip the download.
+service downloads it from a pinned data release (default
+[`data-v2`](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v2))
+into the `app_data` named volume on the first `up`. It records which release
+filled the volume (a `.data_base` marker), so subsequent runs skip the
+download — and bumping `DATA_TAG` (e.g. `DATA_TAG=data-v3`) to point at a newer
+release makes the next deploy auto-refresh the volume, no manual clear needed.
 
 ```bash
 git clone https://github.com/Atvriders/ham-callbook-site
@@ -145,6 +149,11 @@ docker compose up -d
 To use **your own** data instead of the download, replace the backend's
 `app_data:/data:ro` volume with a bind mount to a directory containing the
 files (`USA_Ham_Callbooks.sqlite` + the artifact JSONs).
+
+The `/data` mount is **read-only** — the backend opens the WAL-mode SQLite with
+an `immutable=1` fallback so `:ro` works. The corrections-desk store is the one
+exception: it lives on its own writable `submissions_data` volume, because
+SQLite must create its `-wal`/`-shm` sidecars (a read-only dir forbids that).
 
 **Baked-in data (all-in-one).** Prefer a single self-contained image with no
 download step or data volume? Use the `ham-callbook-backend-full` image (DB +
