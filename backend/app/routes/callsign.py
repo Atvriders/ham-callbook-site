@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path as PathParam
 from pydantic import BaseModel, Field
 
 from app.db import get_db
+from app.integrations import fcc_uls
 from app.integrations import uls_history as _uls_history
 
 router = APIRouter(prefix="/api/callsign", tags=["callsign"])
@@ -324,6 +325,35 @@ def get_callsign(
     )
     rows = cur.fetchall()
     if not rows:
+        # No historical (printed-callbook) corpus rows. Before 404-ing, check
+        # the in-memory FCC ULS snapshot: a CURRENT-only callsign (granted in
+        # the ULS era, never printed in the scanned callbooks) lives there but
+        # not in the corpus. If we find it, synthesize a minimal CallsignDetail
+        # from the ULS record so the detail page renders (empty printed history
+        # + the live license panel) instead of "Signal lost".
+        rec = fcc_uls.lookup(callsign)
+        if rec is not None:
+            grant_year = rec.grant_date_iso.year if rec.grant_date_iso else 0
+            return CallsignDetail(
+                callsign=callsign,
+                latest=CallsignLatest(
+                    callsign=callsign,
+                    year=grant_year,
+                    edition="FCC ULS (current)",
+                    name=rec.full_name,
+                    address=None,
+                    city=None,
+                    state=None,
+                    zip=None,
+                    license_class=None,
+                ),
+                first_seen_year=grant_year,
+                last_seen_year=grant_year,
+                editions_count=0,
+                distinct_years=0,
+                states_held=[],
+                license_class_progression=[],
+            )
         raise HTTPException(status_code=404, detail=f"callsign not found: {callsign}")
 
     latest = rows[0]
@@ -428,6 +458,12 @@ def get_history(
     )
     rows = cur.fetchall()
     if not rows:
+        # A current-only callsign (present in the FCC ULS snapshot but never
+        # printed in the scanned callbooks) has no printed-edition history.
+        # Return an empty list rather than 404 so the detail page's history
+        # fetch succeeds and the page renders the live license panel.
+        if fcc_uls.lookup(callsign) is not None:
+            return []
         raise HTTPException(status_code=404, detail=f"callsign not found: {callsign}")
     items = [
         CallsignHistoryItem(

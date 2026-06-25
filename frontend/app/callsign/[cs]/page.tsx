@@ -2451,6 +2451,58 @@ function ArchiveSummary({ detail, isClub = false }: { detail: CallsignDetail; is
   );
 }
 
+/**
+ * On-theme note shown in place of the historical archive sections when a
+ * callsign has NO printed-callbook editions and is sourced purely from the
+ * current FCC ULS database. Keeps the page from rendering a blank/"0–0"
+ * archive that reads as broken, and points the reader at the live license
+ * panel below.
+ */
+function UlsOnlyNote() {
+  return (
+    <div
+      role="note"
+      style={{
+        position: "relative",
+        border: `1px dashed ${colors.border}`,
+        background:
+          "linear-gradient(180deg, rgba(255,163,11,0.04) 0%, rgba(19,26,45,0) 60%)",
+        borderRadius: "0.25rem",
+        padding: "1.5rem 1.75rem",
+      }}
+    >
+      <CornerTicks />
+      <div
+        style={{
+          fontFamily: fontStacks.mono,
+          fontSize: "0.6rem",
+          letterSpacing: "0.32em",
+          textTransform: "uppercase",
+          color: colors.accent,
+          marginBottom: "0.6rem",
+        }}
+      >
+        No printed-callbook entries
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontFamily: fontStacks.body,
+          fontSize: "0.95rem",
+          lineHeight: 1.5,
+          color: colors.text_dim,
+          maxWidth: "44rem",
+        }}
+      >
+        This callsign doesn&rsquo;t appear in any of the scanned paper callbooks
+        we&rsquo;ve digitized &mdash; its record comes from the current FCC ULS
+        database. See the license panel below for the live grant, status, and
+        holder.
+      </p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page entry point.
 // ---------------------------------------------------------------------------
@@ -2536,6 +2588,15 @@ export default async function CallsignPage({ params }: PageProps) {
 
   const currentHolder = resolveCurrentHolder(ulsRecord, qrzEnvelope, detail);
   const heroHolder = currentHolder.name;
+
+  // A callsign that has NO printed-callbook corpus rows (editions_count === 0)
+  // but still resolved server-side is a CURRENT-only callsign synthesized from
+  // the FCC ULS snapshot (e.g. a vanity/Tech call granted in the ULS era that
+  // was never printed in the scanned books). The historical sections (archive
+  // summary, holders timeline, appearances table, year span) would all render
+  // empty/"0–0" for it, which reads as broken — so we surface a clear note and
+  // suppress the misleading archive-span chip.
+  const ulsOnly = detail.editions_count === 0 && (history?.length ?? 0) === 0;
 
   return (
     <main
@@ -2752,13 +2813,19 @@ export default async function CallsignPage({ params }: PageProps) {
                   color: colors.text_dim,
                 }}
               >
-                Archive span{" "}
-                <span style={{ color: colors.text }}>
-                  {yearSpan(detail.first_seen_year, detail.last_seen_year)}
-                </span>
-                {" · "}
-                {detail.editions_count} edition
-                {detail.editions_count === 1 ? "" : "s"}
+                {ulsOnly ? (
+                  <>FCC ULS record · no printed-callbook editions</>
+                ) : (
+                  <>
+                    Archive span{" "}
+                    <span style={{ color: colors.text }}>
+                      {yearSpan(detail.first_seen_year, detail.last_seen_year)}
+                    </span>
+                    {" · "}
+                    {detail.editions_count} edition
+                    {detail.editions_count === 1 ? "" : "s"}
+                  </>
+                )}
               </span>
               {clubInfo && clubInfo.is_club && clubInfo.club_slug ? (
                 <ClubBadge
@@ -2784,14 +2851,20 @@ export default async function CallsignPage({ params }: PageProps) {
           <SectionHeader
             kicker="Paper trail"
             title="In the callbook archive"
-            tally={`${detail.editions_count
-              .toString()
-              .padStart(3, "0")} editions`}
+            tally={
+              ulsOnly
+                ? "FCC ULS only"
+                : `${detail.editions_count.toString().padStart(3, "0")} editions`
+            }
           />
-          {(() => {
-            const archiveIsClub = (clubInfo?.is_club ?? false) || (ulsRecord?.is_club ?? false) || isClubByName(detail?.latest?.name);
-            return <ArchiveSummary detail={detail} isClub={archiveIsClub} />;
-          })()}
+          {ulsOnly ? (
+            <UlsOnlyNote />
+          ) : (
+            (() => {
+              const archiveIsClub = (clubInfo?.is_club ?? false) || (ulsRecord?.is_club ?? false) || isClubByName(detail?.latest?.name);
+              return <ArchiveSummary detail={detail} isClub={archiveIsClub} />;
+            })()
+          )}
         </Reveal>
       </section>
 
