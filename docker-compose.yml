@@ -15,15 +15,17 @@ services:
   data-init:
     image: alpine:3.20
     environment:
-      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v1}"
+      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v2}"
     volumes:
       - app_data:/data
     command:
       - sh
       - -ec
       - |
-        if [ -f /data/USA_Ham_Callbooks.sqlite ]; then
-          echo "[data-init] data already present — skipping download."; exit 0
+        # Re-download when the release tag changes: the marker records which
+        # DATA_BASE the volume was populated from. Same tag -> skip; new tag -> refresh.
+        if [ -f /data/USA_Ham_Callbooks.sqlite ] && [ "$$(cat /data/.data_base 2>/dev/null)" = "$$DATA_BASE" ]; then
+          echo "[data-init] data for $$DATA_BASE already present — skipping download."; exit 0
         fi
         apk add --no-cache curl >/dev/null
         echo "[data-init] downloading database (~860 MB gz, one time)…"
@@ -37,6 +39,7 @@ services:
         echo "[data-init] downloading feature artifacts…"
         curl -fSL "$$DATA_BASE/callbook-artifacts.tar.gz" -o /data/art.tgz
         tar xzf /data/art.tgz -C /data && rm -f /data/art.tgz
+        echo "$$DATA_BASE" > /data/.data_base
         echo "[data-init] data ready: $$(ls /data | wc -l) items."
     restart: "no"
 
