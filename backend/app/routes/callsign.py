@@ -870,6 +870,11 @@ class UlsLicenseRecord(BaseModel):
     grant: str | None = None
     expired: str | None = None
     cancel: str | None = None
+    # CURRENT FCC operator class for this license (AM.dat field idx 5), e.g.
+    # E/A/G/T/N/P. Populated only when the rebuilt artifact carries it; older
+    # artifacts omit the field and this stays None (backward-compatible).
+    oper_class: str | None = None
+    oper_class_label: str | None = None
 
 
 class UlsHistoryResponse(BaseModel):
@@ -878,6 +883,9 @@ class UlsHistoryResponse(BaseModel):
     prev_call: str | None = None
     prev_class: str | None = None
     prev_class_label: str | None = None
+    # CURRENT operator class of the (latest-granted) license for this callsign.
+    oper_class: str | None = None
+    oper_class_label: str | None = None
     licenses: list[UlsLicenseRecord] = Field(default_factory=list)
     forward_links: list[str] = Field(
         default_factory=list,
@@ -889,6 +897,8 @@ def _build_uls_license(raw: dict) -> UlsLicenseRecord:
     """Normalize a single raw license dict from the artifact into a model."""
     status_raw = (raw.get("status") or "").strip().upper() or None
     status_label = _uls_history._STATUS_LABELS.get(status_raw, "Unknown") if status_raw else None
+    class_raw = (raw.get("oper_class") or "").strip().upper() or None
+    class_label = _uls_history._CLASS_LABELS.get(class_raw) if class_raw else None
     return UlsLicenseRecord(
         usi=raw.get("usi") or None,
         name=raw.get("name") or None,
@@ -897,6 +907,8 @@ def _build_uls_license(raw: dict) -> UlsLicenseRecord:
         grant=raw.get("grant") or None,
         expired=raw.get("expired") or None,
         cancel=raw.get("cancel") or None,
+        oper_class=class_raw,
+        oper_class_label=class_label,
     )
 
 
@@ -932,8 +944,19 @@ def get_uls_history(
     prev_class_raw = (rec.get("prev_class") or "").strip().upper() or None
     prev_class_label = _uls_history._CLASS_LABELS.get(prev_class_raw) if prev_class_raw else None
 
+    oper_class_raw = (rec.get("oper_class") or "").strip().upper() or None
+    oper_class_label = _uls_history._CLASS_LABELS.get(oper_class_raw) if oper_class_raw else None
+
     raw_licenses: list[dict] = rec.get("licenses") or []
     licenses = [_build_uls_license(lic) for lic in raw_licenses if isinstance(lic, dict)]
+
+    # Fallback: if no top-level oper_class but the latest license row carries one
+    # (older single-call layouts), surface that as the current class.
+    if oper_class_raw is None and licenses:
+        last = licenses[-1]
+        if last.oper_class:
+            oper_class_raw = last.oper_class
+            oper_class_label = last.oper_class_label
 
     return UlsHistoryResponse(
         callsign=callsign,
@@ -941,6 +964,8 @@ def get_uls_history(
         prev_call=prev_call,
         prev_class=prev_class_raw,
         prev_class_label=prev_class_label,
+        oper_class=oper_class_raw,
+        oper_class_label=oper_class_label,
         licenses=licenses,
         forward_links=fwd,
     )
@@ -957,6 +982,9 @@ class UlsChainRecord(BaseModel):
     grant_date:   str | None = None
     expired_date: str | None = None
     cancel_date:  str | None = None
+    # CURRENT FCC operator class for this license (code + human label).
+    license_class:       str | None = None
+    license_class_label: str | None = None
     # Callsign this *specific* (prior) holder later moved to, when the forward
     # link (AM.dat previous_callsign == this call) is attributable to this row
     # rather than to the current/active holder. See get_uls_chain.
@@ -972,6 +1000,10 @@ class UlsChainResponse(BaseModel):
     callsign: str
     records:  list[UlsChainRecord] = Field(default_factory=list)
     lineage:  UlsLineage = Field(default_factory=UlsLineage)
+    # CURRENT operator class of the active/latest license (code + label), so the
+    # hero can show the class for ULS-only calls. None when not in the artifact.
+    current_class:       str | None = None
+    current_class_label: str | None = None
 
 
 @router.get("/{cs}/uls_chain", response_model=UlsChainResponse)
@@ -993,16 +1025,28 @@ def get_uls_chain(
     rec = _uls_history.get(callsign)
     prev_callsign: str | None = None
     records: list[UlsChainRecord] = []
+    current_class: str | None = None
+    current_class_label: str | None = None
 
     if rec is not None:
         prev_call_raw = (rec.get("prev_call") or "").strip().upper()
         prev_callsign = prev_call_raw or None
+
+        # Top-level current operator class (latest-granted license's class).
+        current_class = (rec.get("oper_class") or "").strip().upper() or None
+        current_class_label = (
+            _uls_history._CLASS_LABELS.get(current_class) if current_class else None
+        )
 
         raw_licenses: list[dict] = rec.get("licenses") or []
         for lic in raw_licenses:
             if not isinstance(lic, dict):
                 continue
             status_raw = (lic.get("status") or "").strip().upper() or None
+            lic_class = (lic.get("oper_class") or "").strip().upper() or None
+            lic_class_label = (
+                _uls_history._CLASS_LABELS.get(lic_class) if lic_class else None
+            )
             records.append(UlsChainRecord(
                 usi=lic.get("usi") or None,
                 holder=lic.get("name") or None,
@@ -1010,7 +1054,14 @@ def get_uls_chain(
                 grant_date=lic.get("grant") or None,
                 expired_date=lic.get("expired") or None,
                 cancel_date=lic.get("cancel") or None,
+                license_class=lic_class,
+                license_class_label=lic_class_label,
             ))
+
+        # Fallback for top-level class: use the latest license row's class.
+        if current_class is None and records and records[-1].license_class:
+            current_class = records[-1].license_class
+            current_class_label = records[-1].license_class_label
 
     # ------------------------------------------------------------------
     # Forward-link attribution.
@@ -1054,6 +1105,8 @@ def get_uls_chain(
         callsign=callsign,
         records=records,
         lineage=UlsLineage(prev_callsign=prev_callsign, fwd_callsign=hero_fwd_callsign),
+        current_class=current_class,
+        current_class_label=current_class_label,
     )
 
 

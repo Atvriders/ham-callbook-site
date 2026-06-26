@@ -9,14 +9,25 @@ Output schema per callsign:
   {
     "prev_call": "KA0CAJ" | null,
     "prev_class": "T" | null,
+    "oper_class": "E" | null,
     "licenses": [
       {"usi": "...", "name": "...", "status": "A", "grant": "1998-12-04",
-       "expired": "2003-05-04", "cancel": null},
+       "expired": "2003-05-04", "cancel": null, "oper_class": "E"},
       ...
     ] | null
   }
 
+``oper_class`` (both at the top level and per-license) is the CURRENT FCC
+operator class for that callsign/license — AM.dat field idx 5 — using the
+standard codes E/A/G/T/N/P. This is distinct from ``prev_class`` (AM.dat field
+idx 16), which is the class of the *previous* callsign the licensee held. The
+top-level ``oper_class`` is the class of the most-recently-granted license; the
+per-license ``oper_class`` lets a multi-holder callsign attribute the class to
+the specific holder.
+
 licenses=null when the callsign only has a prev_call entry and exactly one HD row.
+All fields are additive/backward-compatible: artifacts produced before this
+field existed simply omit it and the backend treats a missing value as None.
 """
 
 from __future__ import annotations
@@ -85,20 +96,35 @@ def build():
         print("Pass 1: AM.dat ...")
         # {callsign -> (prev_callsign, prev_class, usi)}
         am_prev: dict[str, tuple[str, str, str]] = {}
+        # CURRENT operator class (AM field idx 5) keyed by USI and by callsign.
+        # USI keying lets us attribute the class to a specific license row in a
+        # multi-holder callsign; callsign keying is the fallback / top-level value.
+        am_class_by_usi: dict[str, str] = {}
+        am_class_by_call: dict[str, str] = {}
         am_count = 0
         for row in stream_dat(zf, "AM.dat"):
-            if len(row) < 17:
+            if len(row) < 6:
                 continue
             usi = row[1].strip()
             callsign = row[4].strip().upper()
-            prev_cs = row[15].strip().upper()
+            oper_class = row[5].strip().upper()
+            prev_cs = row[15].strip().upper() if len(row) > 15 else ""
             prev_class = row[16].strip() if len(row) > 16 else ""
             if not callsign:
                 continue
             am_count += 1
+            if oper_class:
+                if usi:
+                    am_class_by_usi[usi] = oper_class
+                # Last write wins for the callsign-level fallback; HD sorting
+                # below decides the authoritative (latest-grant) value.
+                am_class_by_call[callsign] = oper_class
             if prev_cs:
                 am_prev[callsign] = (prev_cs, prev_class, usi)
-        print(f"  AM rows: {am_count:,}  |  callsigns with prev_call: {len(am_prev):,}")
+        print(
+            f"  AM rows: {am_count:,}  |  callsigns with prev_call: {len(am_prev):,}"
+            f"  |  callsigns with oper_class: {len(am_class_by_call):,}"
+        )
 
         # ------------------------------------------------------------------ #
         # Pass 2 — HD.dat: collect all license rows per callsign              #
@@ -191,6 +217,10 @@ def build():
             prev_call_only += 1
 
         licenses = None
+        # Top-level current operator class: the class of the latest-granted
+        # license. Default to the callsign-level AM value, then refine to the
+        # latest license row's USI-specific class below when we have HD rows.
+        oper_class: str | None = am_class_by_call.get(cs) or None
         if cs in multi_hd_calls:
             multi_license_count += 1
             rows = hd_by_call[cs]
@@ -199,6 +229,7 @@ def build():
             licenses = []
             for (usi, status, grant, expired, cancel) in rows_sorted:
                 name = en_names.get(usi, "")
+                lic_class = am_class_by_usi.get(usi) or None
                 licenses.append({
                     "usi": usi,
                     "name": name,
@@ -206,11 +237,17 @@ def build():
                     "grant": _mmddyyyy_to_iso(grant),
                     "expired": _mmddyyyy_to_iso(expired),
                     "cancel": _mmddyyyy_to_iso(cancel),
+                    "oper_class": lic_class,
                 })
+            # Prefer the latest-granted license's class as the top-level value.
+            latest_lic_class = licenses[-1].get("oper_class") if licenses else None
+            if latest_lic_class:
+                oper_class = latest_lic_class
 
         entry: dict[str, Any] = {
             "prev_call": prev_cs or None,
             "prev_class": (prev_class if prev_class else None),
+            "oper_class": oper_class,
             "licenses": licenses,
         }
         out[cs] = entry

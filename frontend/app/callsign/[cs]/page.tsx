@@ -277,6 +277,9 @@ interface UlsLicenseRecord {
   grant_date:   string | null;
   expired_date: string | null;
   cancel_date:  string | null;
+  /** Current FCC operator class code for this license (E/A/G/T/N/P). */
+  license_class?:       string | null;
+  license_class_label?: string | null;
   /** Callsign this specific prior holder later moved to (forward-link attribution). */
   later_callsign?: string | null;
 }
@@ -285,6 +288,9 @@ interface UlsChain {
   callsign: string;
   records:  UlsLicenseRecord[];
   lineage:  UlsLineage;
+  /** Current operator class of the active/latest license (populated after rebuild). */
+  current_class?:       string | null;
+  current_class_label?: string | null;
 }
 
 /**
@@ -301,6 +307,12 @@ interface CurrentHolder {
   status: string | null;
   /** Human-readable status label (Active / Expired / Cancelled / ...). */
   statusLabel: string | null;
+  /**
+   * Current FCC operator class code (E/A/G/T/N/P) for the resolved holder, or
+   * null when unknown (e.g. a ULS-only call whose artifact predates the
+   * oper_class field, or an archive/QRZ holder with no class on record).
+   */
+  licenseClass: string | null;
   state: string | null;
   grantDate: string | null;
   expiredDate: string | null;
@@ -538,7 +550,14 @@ function resolveCurrentHolder(
   uls: FccUlsRecord | null,
   qrz: QrzEnvelope | null,
   detail: CallsignDetail,
+  ulsChain: UlsChain | null,
 ): CurrentHolder {
+  // Current operator class from the ULS history artifact (the authoritative
+  // CURRENT class for ULS-era calls). Null until the artifact is rebuilt with
+  // the oper_class field, so every consumer must degrade gracefully.
+  const ulsCurrentClass =
+    (ulsChain?.current_class ?? "").toUpperCase() || null;
+
   const ulsStatus = (uls?.status ?? "").toUpperCase();
   if (uls && (ulsStatus === "A" || ulsStatus === "E")) {
     const composed =
@@ -549,6 +568,9 @@ function resolveCurrentHolder(
       name: composed,
       status: ulsStatus,
       statusLabel: uls.status_label ?? (ulsStatus === "A" ? "Active" : "Expired"),
+      // Prefer the ULS artifact's current class; fall back to the most-recent
+      // printed-callbook class if the artifact doesn't carry one yet.
+      licenseClass: ulsCurrentClass ?? detail.latest.license_class ?? null,
       state: uls.state ?? null,
       grantDate: uls.grant_date ?? null,
       expiredDate: uls.expired_date ?? null,
@@ -564,6 +586,10 @@ function resolveCurrentHolder(
       name: cleanName(qrz.profile.name),
       status: null,
       statusLabel: "Listed on QRZ",
+      // QRZ exposes a spelled-out class string (e.g. "General"); the badge
+      // renderer normalizes either a code or a label.
+      licenseClass:
+        ulsCurrentClass ?? qrz.profile.license_class ?? detail.latest.license_class ?? null,
       state: qrz.profile.state ?? null,
       grantDate: null,
       expiredDate: null,
@@ -580,6 +606,10 @@ function resolveCurrentHolder(
     name: archiveName,
     status: null,
     statusLabel: "No FCC record",
+    // Archive fallback: the class is the most-recent printed-callbook value (a
+    // ULS current class may still exist for the call even with no active ULS
+    // status, so prefer it when present).
+    licenseClass: ulsCurrentClass ?? detail.latest.license_class ?? null,
     state: cleanOCRState(detail.latest.city, detail.latest.state) || null,
     grantDate: null,
     expiredDate: null,
@@ -1915,6 +1945,83 @@ function NearbyList({ nearby }: { nearby: NearbyCallsigns }) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Normalize a license-class value (which may be a single-letter FCC code like
+ * "E"/"G", or an already-spelled label like "General" from QRZ) into a clean
+ * display label. Returns null when the value is unknown/empty so the caller can
+ * degrade gracefully (render nothing) rather than show a broken chip.
+ */
+function heroLicenseClassLabel(
+  raw: string | null | undefined,
+  isClub: boolean,
+): string | null {
+  if (isClub) return "Club";
+  if (!raw) return null;
+  const v = raw.trim();
+  if (!v) return null;
+  // Single-letter FCC code path (E/A/G/T/N/P/B/C). classLabelForCode returns
+  // "—" for codes it can't map; treat that as unknown.
+  if (v.length === 1) {
+    const mapped = classLabelForCode(v);
+    return mapped && mapped !== "—" ? mapped : null;
+  }
+  // Already a spelled label (e.g. QRZ "General", "Amateur Extra"). Title-case
+  // lightly and pass through; reject obvious non-class sentinels.
+  const low = v.toLowerCase();
+  if (low === "unknown" || low === "n/a" || low === "none") return null;
+  return v;
+}
+
+/**
+ * Hero license-class badge — a prominent amber chip showing the operator's
+ * CURRENT license class (Extra / General / Technician / ...). Sits in the hero
+ * beside the source chip. Renders nothing when the class is unknown so a
+ * ULS-only call (or any record without a class) never shows an empty chip.
+ */
+function HeroClassBadge({ holder }: { holder: CurrentHolder }) {
+  const label = heroLicenseClassLabel(holder.licenseClass, holder.is_club);
+  if (!label) return null;
+  return (
+    <div
+      aria-label={`License class: ${label}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: "0.5rem",
+        alignSelf: "flex-start",
+        padding: "0.34rem 0.8rem",
+        border: `1px solid ${colors.accent}`,
+        background: "rgba(255,163,11,0.1)",
+        borderRadius: "999px",
+        fontFamily: fontStacks.mono,
+        boxShadow: "0 0 12px rgba(255,209,102,0.22)",
+      }}
+    >
+      <span
+        style={{
+          fontSize: "0.6rem",
+          letterSpacing: "0.32em",
+          textTransform: "uppercase",
+          color: colors.accent,
+        }}
+      >
+        Class
+      </span>
+      <span
+        style={{
+          fontSize: "0.95rem",
+          letterSpacing: "0.06em",
+          fontWeight: 600,
+          color: colors.glow,
+          textShadow: "0 0 8px rgba(255,209,102,0.35)",
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/**
  * Eyebrow chip that sits between the giant callsign and the holder name.
  * Reads at a glance as either:
  *
@@ -2606,7 +2713,7 @@ export default async function CallsignPage({ params }: PageProps) {
     notFound();
   }
 
-  const currentHolder = resolveCurrentHolder(ulsRecord, qrzEnvelope, detail);
+  const currentHolder = resolveCurrentHolder(ulsRecord, qrzEnvelope, detail, ulsChain ?? null);
   const heroHolder = currentHolder.name;
 
   // A callsign that has NO printed-callbook corpus rows (editions_count === 0)
@@ -2733,7 +2840,20 @@ export default async function CallsignPage({ params }: PageProps) {
               the name they're about to read is the LIVE current licensee
               (FCC ULS), a QRZ.com listing, or the ARCHIVE fallback. */}
           <Reveal delay={0.4}>
-            <HeroSourceChip holder={currentHolder} detail={detail} />
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: "0.6rem 0.75rem",
+              }}
+            >
+              <HeroSourceChip holder={currentHolder} detail={detail} />
+              {/* License class — prominent at the top of the hero. Renders
+                  nothing when the class is unknown (e.g. a ULS-only call whose
+                  artifact predates the oper_class field). */}
+              <HeroClassBadge holder={currentHolder} />
+            </div>
           </Reveal>
 
           {currentHolder.source === "archive" ||
