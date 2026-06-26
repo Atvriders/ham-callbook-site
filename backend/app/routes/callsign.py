@@ -957,6 +957,10 @@ class UlsChainRecord(BaseModel):
     grant_date:   str | None = None
     expired_date: str | None = None
     cancel_date:  str | None = None
+    # Callsign this *specific* (prior) holder later moved to, when the forward
+    # link (AM.dat previous_callsign == this call) is attributable to this row
+    # rather than to the current/active holder. See get_uls_chain.
+    later_callsign: str | None = None
 
 
 class UlsLineage(BaseModel):
@@ -1008,10 +1012,48 @@ def get_uls_chain(
                 cancel_date=lic.get("cancel") or None,
             ))
 
+    # ------------------------------------------------------------------
+    # Forward-link attribution.
+    #
+    # ``fwd_callsign`` is "a callsign whose AM.dat previous_callsign == this
+    # call" — i.e. somebody who upgraded *away from* this call after releasing
+    # it.  When this call has had MULTIPLE licensees over time, that departure
+    # belongs to a PRIOR holder, not to the current/active one.  Surfacing it
+    # in the hero (which describes the current holder) reads as if the current
+    # holder moved away, which is wrong (see AB0ZW / WD0EKE).
+    #
+    # Rule:
+    #   * 0 or 1 license records  -> the lineage genuinely IS the (single)
+    #     holder's; keep ``fwd_callsign`` in the hero lineage unchanged.
+    #   * 2+ license records      -> the forward link is a prior holder's
+    #     departure.  Drop it from the hero lineage and instead attribute it
+    #     to the most-recent DEPARTED (non-current) holder row so it renders
+    #     in the license-history section beside that specific person.
+    # ------------------------------------------------------------------
+    hero_fwd_callsign: str | None = fwd_callsign
+    if fwd_callsign and len(records) >= 2:
+        hero_fwd_callsign = None
+
+        def _grant_key(r: UlsChainRecord) -> str:
+            # Empty grant sorts first; ISO dates sort lexicographically.
+            return r.grant_date or ""
+
+        ordered = sorted(records, key=_grant_key)
+        # Current holder = latest license by grant date. Anything earlier is a
+        # departed predecessor; the departure (forward link) is attributed to
+        # the most recent of those predecessors.
+        predecessors = ordered[:-1]
+        if predecessors:
+            predecessors[-1].later_callsign = fwd_callsign
+        else:
+            # Defensive: no clear predecessor — fall back to keeping it in the
+            # hero rather than dropping the datum entirely.
+            hero_fwd_callsign = fwd_callsign
+
     return UlsChainResponse(
         callsign=callsign,
         records=records,
-        lineage=UlsLineage(prev_callsign=prev_callsign, fwd_callsign=fwd_callsign),
+        lineage=UlsLineage(prev_callsign=prev_callsign, fwd_callsign=hero_fwd_callsign),
     )
 
 

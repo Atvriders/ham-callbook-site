@@ -277,6 +277,8 @@ interface UlsLicenseRecord {
   grant_date:   string | null;
   expired_date: string | null;
   cancel_date:  string | null;
+  /** Callsign this specific prior holder later moved to (forward-link attribution). */
+  later_callsign?: string | null;
 }
 
 interface UlsChain {
@@ -2274,6 +2276,24 @@ function FccLicenseChain({ chain }: { chain: UlsChain | null | undefined }) {
             color: colors.text,
           }}>
             {rec.holder || "—"}
+            {rec.later_callsign ? (
+              <span style={{
+                display: "block",
+                marginTop: "0.2rem",
+                fontFamily: fontStacks.mono,
+                fontSize: "0.65rem",
+                letterSpacing: "0.08em",
+                color: colors.text_dim,
+              }}>
+                later moved to{" "}
+                <a
+                  href={`/callsign/${rec.later_callsign}`}
+                  style={{ color: colors.accent, textDecoration: "underline", fontWeight: 600 }}
+                >
+                  {rec.later_callsign}
+                </a>
+              </span>
+            ) : null}
           </div>
           <div style={{
             padding: "0.5rem 0.75rem",
