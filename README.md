@@ -127,10 +127,10 @@ needed to pull them.
 **Self-contained — no manual data handling.** The ~3 GB archive data is not
 in git or the images (the DB alone is 2.6 GB), so a one-shot `data-init`
 service downloads it from a pinned data release (default
-[`data-v2`](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v2))
+[`data-v3`](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v3))
 into the `app_data` named volume on the first `up`. It records which release
 filled the volume (a `.data_base` marker), so subsequent runs skip the
-download — and bumping `DATA_TAG` (e.g. `DATA_TAG=data-v3`) to point at a newer
+download — and bumping `DATA_TAG` (e.g. `DATA_TAG=data-v4`) to point at a newer
 release makes the next deploy auto-refresh the volume, no manual clear needed.
 
 ```bash
