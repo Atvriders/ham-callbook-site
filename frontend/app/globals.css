@@ -585,6 +585,16 @@ main, header, footer, nav {
   position: relative;
   z-index: 10;
 }
+/* The site-wide top bar is the one exception: the shared rule above is unlayered
+   so it silently overrides Tailwind's layered sticky/top-0/z-50 utilities on the
+   header — which un-stuck it AND buried its Tools dropdown beneath <main>
+   (z-index tie at 10, later sibling wins). Reassert the intended behavior with
+   higher specificity. */
+header.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
 
 /* Reduced motion — respect user preference, kill the slow drifts. */
 @media (prefers-reduced-motion: reduce) {

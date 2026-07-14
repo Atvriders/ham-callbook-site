@@ -97,7 +97,7 @@ function Nav() {
     { href: "/restore", label: "Restore", Icon: AlertCircle },
   ];
   return (
-    <header className="border-b border-[color:var(--color-border)] bg-[color:var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-50">
+    <header className="site-header border-b border-[color:var(--color-border)] bg-[color:var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-50">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4">
         <Link
           href="/"
