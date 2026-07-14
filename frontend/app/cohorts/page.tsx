@@ -514,7 +514,7 @@ export default function CohortsPage() {
     <div
       style={{
         background: S.bg,
-        minHeight: "100vh",
+        minHeight: "100dvh",
         color: S.text,
         fontFamily: S.body,
       }}

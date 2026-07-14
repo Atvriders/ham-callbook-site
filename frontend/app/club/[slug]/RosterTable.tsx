@@ -82,6 +82,9 @@ export default function RosterTable({ rows }: { rows: ClubCallsignRow[] }) {
       columns={columns as unknown as DataTableColumn<Record<string, unknown>>[]}
       rows={rows as unknown as Record<string, unknown>[]}
       rowKey={(r) => (r as unknown as ClubCallsignRow).callsign}
+      // Fixed column minimums total ~20rem; give Location breathing room and
+      // let DataTable's overflow wrapper scroll sideways on narrow phones.
+      minWidth="34rem"
     />
   );
 }

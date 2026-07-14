@@ -90,6 +90,10 @@
    --------------------------------------------------------------------------- */
 
 html {
+  /* Kill page-level sideways scroll from any stray over-wide element.
+     `clip` (not `hidden`) — hidden would turn <html> into a scroll
+     container and break position: sticky descendants. */
+  overflow-x: clip;
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body);
@@ -103,6 +107,10 @@ html {
 
 body {
   min-height: 100dvh;
+  /* Safe-area padding — zero everywhere except notched iPhones in landscape,
+     where viewport-fit=cover (set in layout.tsx) exposes the inset env vars. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   background-color: var(--color-bg);
   /* Slow ambient body gradient — deep midnight at center, warmer toward the
      top and bottom-right corners where the sodium filament "burns" through. */
@@ -585,4 +593,45 @@ main, header, footer, nav {
   .twr-dot {
     animation: none !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   5. Mobile / touch fixes — iOS Safari quirks and small-screen utilities.
+   --------------------------------------------------------------------------- */
+
+/* iOS Safari zooms the whole page when a focused form control has
+   font-size < 16px. Many inputs across the app set 0.8-0.95rem via inline
+   styles, so !important is required to beat them on small screens. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* background-attachment: fixed is broken (and repaint-heavy) on iOS Safari —
+   fall back to scroll on touch devices. */
+@media (hover: none) and (pointer: coarse) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
+/* Collapse utility — other pages apply .collapse-two-col to inline-styled
+   two-column grids; on narrow screens they stack into one column. */
+@media (max-width: 820px) {
+  .collapse-two-col {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Horizontally-scrollable header nav row — scrollbar hidden on all engines,
+   iOS momentum scrolling on. */
+.nav-scroll {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.nav-scroll::-webkit-scrollbar {
+  display: none;
 }

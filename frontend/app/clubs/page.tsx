@@ -223,7 +223,7 @@ export default async function ClubsPage({
     <main
       style={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,
@@ -699,6 +699,8 @@ export default async function ClubsPage({
             defaultValue={q ?? ""}
             placeholder="search clubs — e.g. REDWOOD EMPIRE, MIT, ARRL …"
             aria-label="Search clubs"
+            autoCapitalize="characters"
+            autoCorrect="off"
             style={{
               padding: "1rem 1.25rem",
               background: colors.surface,

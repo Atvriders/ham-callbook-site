@@ -73,7 +73,7 @@ export default async function DataPortalPage() {
   const manifest = await fetchManifest();
 
   const containerStyle: React.CSSProperties = {
-    minHeight: "100vh",
+    minHeight: "100dvh",
     background: colors.bg,
     color: colors.text,
     fontFamily: fontStacks.body,

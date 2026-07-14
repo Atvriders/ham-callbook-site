@@ -140,7 +140,7 @@ export default async function StoryPage({
   return (
     <main
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,
@@ -208,6 +208,7 @@ export default async function StoryPage({
 
       {/* ── Content ── */}
       <div
+        className="collapse-two-col"
         style={{
           maxWidth: "860px",
           margin: "0 auto",

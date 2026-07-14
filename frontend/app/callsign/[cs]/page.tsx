@@ -320,6 +320,12 @@ interface CurrentHolder {
   is_club: boolean;
   /** For source === 'archive', the year of the archive record. */
   archiveYear: number | null;
+  /**
+   * Canonical QRZ.com profile URL scraped from the QRZ public page
+   * (`QrzPublicProfile.source_url`), when the QRZ lookup returned one.
+   * Consumers fall back to `https://www.qrz.com/db/<callsign>`.
+   */
+  qrzUrl: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -558,6 +564,10 @@ function resolveCurrentHolder(
   const ulsCurrentClass =
     (ulsChain?.current_class ?? "").toUpperCase() || null;
 
+  // QRZ profile URL (scraped `source_url`), threaded through regardless of
+  // which source wins so the hero can link out to QRZ when appropriate.
+  const qrzUrl = (qrz?.profile?.source_url ?? "").trim() || null;
+
   const ulsStatus = (uls?.status ?? "").toUpperCase();
   if (uls && (ulsStatus === "A" || ulsStatus === "E")) {
     const composed =
@@ -577,6 +587,7 @@ function resolveCurrentHolder(
       zip: uls.zip ?? null,
       is_club: uls?.is_club ?? false,
       archiveYear: null,
+      qrzUrl,
     };
   }
 
@@ -596,6 +607,7 @@ function resolveCurrentHolder(
       zip: qrz.profile.zip ?? null,
       is_club: false,
       archiveYear: null,
+      qrzUrl,
     };
   }
 
@@ -616,6 +628,7 @@ function resolveCurrentHolder(
     zip: detail.latest.zip ?? null,
     is_club: false,
     archiveYear: detail.latest.year ?? detail.last_seen_year ?? null,
+    qrzUrl,
   };
 }
 
@@ -1593,8 +1606,18 @@ async function ActivityPanel({ callsign }: { callsign: string }) {
         >
           Sources
         </div>
-        <SourcePip name="PSK Reporter" found={Boolean(psk.found)} note={String(psk.spot_count ?? "")} />
-        <SourcePip name="RBN" found={Boolean(rbn.found)} note={String(rbn.spot_count ?? "")} />
+        <SourcePip
+          name="PSK Reporter"
+          found={Boolean(psk.found)}
+          note={String(psk.spot_count ?? "")}
+          href="https://pskreporter.info"
+        />
+        <SourcePip
+          name="RBN"
+          found={Boolean(rbn.found)}
+          note={String(rbn.spot_count ?? "")}
+          href="https://www.reversebeacon.net"
+        />
         <SourcePip
           name="FCC ULS"
           found={Boolean(uls.found)}
@@ -1648,10 +1671,13 @@ function SourcePip({
   name,
   found,
   note,
+  href,
 }: {
   name: string;
   found: boolean;
   note?: string;
+  /** When present the pip name links out to the source's own site. */
+  href?: string;
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -1665,7 +1691,24 @@ function SourcePip({
           boxShadow: found ? "0 0 8px rgba(255,209,102,0.6)" : "none",
         }}
       />
-      <span style={{ color: colors.text }}>{name}</span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: colors.accent, textDecoration: "underline" }}
+        >
+          {name}
+          <span
+            aria-hidden
+            style={{ marginLeft: "0.35em", color: colors.accent_2, fontSize: "0.85em" }}
+          >
+            ↗
+          </span>
+        </a>
+      ) : (
+        <span style={{ color: colors.text }}>{name}</span>
+      )}
       {note ? <span aria-hidden>· {note}</span> : null}
     </div>
   );
@@ -2091,7 +2134,27 @@ function HeroSourceChip({
         {kicker}
       </span>
       <span aria-hidden style={{ opacity: 0.55 }}>·</span>
-      <span style={{ color: live ? colors.glow : colors.text }}>{label}</span>
+      {holder.source === "qrz" ? (
+        <a
+          href={
+            holder.qrzUrl ??
+            `https://www.qrz.com/db/${encodeURIComponent(detail.latest.callsign)}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: colors.accent, textDecoration: "underline" }}
+        >
+          {label}
+          <span
+            aria-hidden
+            style={{ marginLeft: "0.35em", color: colors.accent_2, fontSize: "0.85em" }}
+          >
+            ↗
+          </span>
+        </a>
+      ) : (
+        <span style={{ color: live ? colors.glow : colors.text }}>{label}</span>
+      )}
     </div>
   );
 }
@@ -2258,11 +2321,11 @@ function DistrictReorgBanner({ data }: { data: DistrictCompanion | null }) {
       border: '1px solid rgba(255,163,11,0.4)', background: 'rgba(255,163,11,0.06)',
       padding: '0.5rem 0.85rem', borderRadius: 4, marginTop: '0.75rem',
       fontFamily: 'var(--font-jetbrains-mono, monospace)', fontSize: '0.78rem',
-      color: '#ffa30b', display: 'flex', alignItems: 'center', gap: '0.6rem'
+      color: colors.accent, display: 'flex', alignItems: 'center', gap: '0.6rem'
     }}>
       <span style={{ opacity: 0.7 }}>{bannerLabel}</span>
       <span style={{ opacity: 0.4 }}>::</span>
-      <span>{verb} <a href={`/callsign/${data.companion}`} style={{ color: '#ffa30b', textDecoration: 'underline' }}>{data.companion}</a> {preRange}</span>
+      <span>{verb} <a href={`/callsign/${data.companion}`} style={{ color: colors.accent, textDecoration: 'underline' }}>{data.companion}</a> {preRange}</span>
     </div>
   );
 }
@@ -2335,7 +2398,11 @@ function FccLicenseChain({ chain }: { chain: UlsChain | null | undefined }) {
     <div style={{
       border: `1px solid ${colors.border}`,
       borderRadius: "0.25rem",
-      overflow: "hidden",
+      // Horizontal scroll on narrow viewports — the grid below has a fixed
+      // ~44rem minimum, so phones swipe the table instead of losing the
+      // right-hand columns to clipping.
+      overflowX: "auto",
+      overflowY: "hidden",
       position: "relative",
     }}>
       <CornerTicks />
@@ -2343,6 +2410,7 @@ function FccLicenseChain({ chain }: { chain: UlsChain | null | undefined }) {
       <div style={{
         display: "grid",
         gridTemplateColumns: "6rem minmax(0, 1fr) 6rem 8rem 8rem 8rem",
+        minWidth: "44rem",
         borderBottom: `1px solid ${colors.border}`,
         background: "rgba(10,14,26,0.55)",
       }}>
@@ -2364,6 +2432,7 @@ function FccLicenseChain({ chain }: { chain: UlsChain | null | undefined }) {
         <div key={rec.usi} style={{
           display: "grid",
           gridTemplateColumns: "6rem minmax(0, 1fr) 6rem 8rem 8rem 8rem",
+          minWidth: "44rem",
           borderBottom: idx < chain.records.length - 1 ? `1px solid ${colors.border}` : undefined,
           background: idx % 2 === 0 ? "transparent" : "rgba(255,163,11,0.018)",
         }}>
@@ -2729,7 +2798,7 @@ export default async function CallsignPage({ params }: PageProps) {
     <main
       style={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,
@@ -2853,6 +2922,40 @@ export default async function CallsignPage({ params }: PageProps) {
                   nothing when the class is unknown (e.g. a ULS-only call whose
                   artifact predates the oper_class field). */}
               <HeroClassBadge holder={currentHolder} />
+              {/* QRZ.com outlink — only for callsigns with a CURRENT presence
+                  (live FCC ULS record or a QRZ listing). Historical-only calls
+                  (archive/none) have no meaningful QRZ page to point at. */}
+              {currentHolder.source === "fcc_uls" || currentHolder.source === "qrz" ? (
+                <a
+                  href={
+                    currentHolder.qrzUrl ??
+                    `https://www.qrz.com/db/${encodeURIComponent(detail.latest.callsign)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35em",
+                    alignSelf: "flex-start",
+                    padding: "0.32rem 0.7rem",
+                    border: `1px solid ${colors.border}`,
+                    background: "rgba(19,26,45,0.55)",
+                    borderRadius: "999px",
+                    fontFamily: fontStacks.mono,
+                    fontSize: "0.65rem",
+                    letterSpacing: "0.32em",
+                    textTransform: "uppercase",
+                    color: colors.accent,
+                    textDecoration: "none",
+                  }}
+                >
+                  QRZ
+                  <span aria-hidden style={{ color: colors.accent_2, fontSize: "0.85em" }}>
+                    ↗
+                  </span>
+                </a>
+              ) : null}
             </div>
           </Reveal>
 

@@ -398,7 +398,7 @@ export default function NameVoyagerPage() {
     <main
       style={{
         background: S.bg,
-        minHeight: "100vh",
+        minHeight: "100dvh",
         color: S.text,
         fontFamily: S.body,
         padding: "2rem 1.5rem",

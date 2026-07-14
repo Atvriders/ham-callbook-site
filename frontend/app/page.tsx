@@ -376,6 +376,8 @@ function SearchBar() {
         onChange={(e) => setValue(e.target.value)}
         placeholder="W1AW · Hiram Percy Maxim · Connecticut"
         autoComplete="off"
+        autoCapitalize="characters"
+        autoCorrect="off"
         spellCheck={false}
         style={{
           flex: 1,
@@ -1069,7 +1071,7 @@ export default function HomePage() {
     <main
       style={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,
@@ -1137,7 +1139,7 @@ export default function HomePage() {
           padding: "5rem 1.5rem 4rem",
           overflow: "hidden",
           borderBottom: `1px solid ${colors.border}`,
-          minHeight: "82vh",
+          minHeight: "82dvh",
           display: "flex",
           alignItems: "center",
         }}

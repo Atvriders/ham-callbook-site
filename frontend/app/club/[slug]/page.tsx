@@ -271,7 +271,7 @@ export default async function ClubPage({
       <main
         style={{
           position: "relative",
-          minHeight: "100vh",
+          minHeight: "100dvh",
           background: colors.bg,
           color: colors.text,
           fontFamily: fontStacks.body,
@@ -349,7 +349,7 @@ export default async function ClubPage({
     <main
       style={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,

@@ -359,7 +359,7 @@ export default async function AboutPage() {
     <main
       style={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,
@@ -604,7 +604,16 @@ export default async function AboutPage() {
               </li>
               <li>
                 <strong style={{ color: colors.accent }}>Anchor</strong>{" "}
-                — FCC ULS (modern licenses)
+                —{" "}
+                <a
+                  href="https://www.fcc.gov/uls"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: colors.accent, textDecoration: "underline" }}
+                >
+                  FCC ULS ↗
+                </a>{" "}
+                (modern licenses)
               </li>
             </ul>
           </aside>

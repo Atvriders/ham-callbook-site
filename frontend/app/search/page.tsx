@@ -1599,7 +1599,7 @@ export default async function SearchPage({
     <main
       style={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,
@@ -1684,6 +1684,8 @@ export default async function SearchPage({
               defaultValue={q ?? ""}
               placeholder="callsign, name, city — try W1AW or HIRAM MAXIM"
               aria-label="Search query"
+              autoCapitalize="characters"
+              autoCorrect="off"
               autoFocus
               style={{
                 padding: "0.95rem 1.1rem",

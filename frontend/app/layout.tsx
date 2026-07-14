@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Geist } from "next/font/google";
 import Link from "next/link";
-import { Radio, Search, BookOpen, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch, MapPin, AlertCircle, Wrench, ChevronDown } from "lucide-react";
+import { Radio, Search, BookOpen, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch, MapPin, AlertCircle } from "lucide-react";
+import ToolsMenu from "@/components/ToolsMenu";
 import "./globals.css";
 
 /* ---------------------------------------------------------------------------
@@ -67,6 +68,14 @@ export const metadata: Metadata = {
   },
 };
 
+/* viewport-fit=cover lets the page paint under the iPhone notch/home bar;
+   globals.css pads body with env(safe-area-inset-*) to compensate. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 /* ---------------------------------------------------------------------------
    Nav + Footer — local to layout so the foundation file is self-contained;
    later milestones can promote them to /components/nav and /components/footer.
@@ -87,12 +96,6 @@ function Nav() {
     { href: "/address", label: "Address", Icon: MapPin },
     { href: "/restore", label: "Restore", Icon: AlertCircle },
   ];
-  const tools = [
-    { href: "/adif", label: "ADIF Time Machine" },
-    { href: "/cohorts", label: "Cohort Observatory" },
-    { href: "/name-voyager", label: "Name Voyager" },
-    { href: "/gedcom", label: "GEDCOM Bridge" },
-  ];
   return (
     <header className="border-b border-[color:var(--color-border)] bg-[color:var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-50">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4">
@@ -107,44 +110,26 @@ function Nav() {
           </span>
           <span className="eyebrow hidden md:inline">USA · 1925 — Present</span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
-          {items.map(({ href, label, Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-2 rounded-sm px-3 py-2 text-[color:var(--color-text-dim)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface)] transition-colors no-underline"
-            >
-              <Icon size={14} aria-hidden />
-              <span className="hidden sm:inline">{label}</span>
-            </Link>
-          ))}
-          {/* Tools dropdown — groups the four Wave-4 feature pages */}
-          <div className="relative group/tools">
-            <button
-              className="flex items-center gap-2 rounded-sm px-3 py-2 text-[color:var(--color-text-dim)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface)] transition-colors"
-              aria-haspopup="true"
-              aria-label="Tools menu"
-            >
-              <Wrench size={14} aria-hidden />
-              <span className="hidden sm:inline">Tools</span>
-              <ChevronDown size={11} aria-hidden className="hidden sm:block opacity-60" />
-            </button>
-            <div
-              className="absolute right-0 top-full mt-1 w-48 border border-[color:var(--color-border)] bg-[color:var(--color-bg)] rounded-sm shadow-lg opacity-0 pointer-events-none group-hover/tools:opacity-100 group-hover/tools:pointer-events-auto transition-opacity z-50"
-              role="menu"
-            >
-              {tools.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  role="menuitem"
-                  className="block px-4 py-2 text-sm text-[color:var(--color-text-dim)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface)] no-underline transition-colors"
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
+        {/* min-w-0 lets the nav shrink inside the justify-between row so the
+            icon strip can scroll sideways on narrow screens instead of
+            overflowing the page. The Tools dropdown sits OUTSIDE the scroll
+            container — a scroll container would clip its absolutely
+            positioned menu — so it stays pinned at the right edge. */}
+        <nav className="flex min-w-0 items-center gap-1 text-sm">
+          <div className="nav-scroll flex flex-nowrap items-center gap-1 overflow-x-auto">
+            {items.map(({ href, label, Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex shrink-0 items-center gap-2 rounded-sm px-3 py-2.5 text-[color:var(--color-text-dim)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface)] transition-colors no-underline"
+              >
+                <Icon size={14} aria-hidden />
+                <span className="hidden sm:inline">{label}</span>
+              </Link>
+            ))}
           </div>
+          {/* Tools dropdown — groups the four Wave-4 feature pages */}
+          <ToolsMenu />
         </nav>
       </div>
     </header>
@@ -152,6 +137,12 @@ function Nav() {
 }
 
 function Footer() {
+  const externalLinks = [
+    { href: "https://www.fcc.gov/uls", label: "FCC ULS" },
+    { href: "https://www.arrl.org", label: "ARRL" },
+    { href: "https://www.qrz.com", label: "QRZ.com" },
+    { href: "https://leehite.org/callbooks/", label: "Callbook scans (leehite.org)" },
+  ];
   return (
     <footer className="mt-24 border-t border-[color:var(--color-border)] bg-[color:var(--color-bg)]">
       <div className="mx-auto max-w-7xl px-6 py-10 grid gap-8 md:grid-cols-3 text-sm text-[color:var(--color-text-dim)]">
@@ -178,6 +169,19 @@ function Footer() {
             <li>
               <Link href="/about">About the data</Link>
             </li>
+            {externalLinks.map(({ href, label }) => (
+              <li key={href}>
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  {label}
+                  <span
+                    aria-hidden
+                    className="ml-[0.35em] font-mono text-[0.85em] text-[color:var(--color-accent-2)]"
+                  >
+                    ↗
+                  </span>
+                </a>
+              </li>
+            ))}
           </ul>
         </div>
         <div>

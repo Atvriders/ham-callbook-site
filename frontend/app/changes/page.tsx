@@ -91,7 +91,7 @@ export default async function ChangesPage() {
     background: colors.bg,
     color: colors.text,
     fontFamily: fontStacks.body,
-    minHeight: "100vh",
+    minHeight: "100dvh",
     padding: "2rem 1.5rem 4rem",
     maxWidth: "1100px",
     margin: "0 auto",

@@ -163,8 +163,10 @@ function PageToken({
       aria-label={`Go to page ${page}`}
       onClick={onClick}
       style={{
-        minWidth: 30,
-        padding: "5px 9px",
+        // ~38-40px effective tap target (mobile guideline; fine on desktop too)
+        minWidth: 38,
+        minHeight: 38,
+        padding: "9px 12px",
         background: "transparent",
         border: `1px solid ${active ? colors.accent : "transparent"}`,
         color: active ? colors.accent : colors.text,
@@ -211,7 +213,10 @@ function ArrowButton({
       aria-label={label}
       aria-disabled={disabled}
       style={{
-        padding: "4px 10px",
+        // ~38-40px effective tap target (mobile guideline; fine on desktop too)
+        minWidth: 38,
+        minHeight: 38,
+        padding: "8px 12px",
         background: "transparent",
         border: "none",
         color: disabled ? colors.text_dim : colors.accent,

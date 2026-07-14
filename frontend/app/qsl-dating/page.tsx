@@ -23,7 +23,7 @@ export default function QslDatingPage() {
   return (
     <main
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         padding: "2rem 1rem",

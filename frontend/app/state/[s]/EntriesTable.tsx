@@ -96,6 +96,9 @@ export default function EntriesTable({ entries }: { entries: StateEntry[] }) {
         const e = r as unknown as StateEntry;
         return `${e.callsign ?? "?"}-${e.year ?? "?"}-${e.edition ?? "?"}`;
       }}
+      // Fixed column minimums total ~18.5rem; keep Name/City readable and
+      // let DataTable's overflow wrapper scroll sideways on narrow phones.
+      minWidth="40rem"
     />
   );
 }

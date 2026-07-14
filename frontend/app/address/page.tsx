@@ -506,7 +506,7 @@ export default async function AddressPage({
   return (
     <main
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: colors.bg,
         color: colors.text,
         fontFamily: fontStacks.body,

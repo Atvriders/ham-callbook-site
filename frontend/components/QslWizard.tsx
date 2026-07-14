@@ -406,6 +406,23 @@ export default function QslWizard() {
             >
               {result.callsign}
             </span>
+            <a
+              href={`https://www.qrz.com/db/${result.callsign}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontFamily: fontStacks.mono,
+                fontSize: "0.7rem",
+                color: colors.accent,
+                letterSpacing: "0.1em",
+                textDecoration: "none",
+              }}
+            >
+              QRZ
+              <span aria-hidden style={{ marginLeft: "0.35em" }}>
+                ↗
+              </span>
+            </a>
             {result.first_year !== null && result.last_year !== null && (
               <span
                 style={{

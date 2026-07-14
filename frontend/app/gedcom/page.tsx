@@ -84,7 +84,7 @@ export default function GedcomPage() {
     <main
       style={{
         background: colors.bg,
-        minHeight: "100vh",
+        minHeight: "100dvh",
         color: colors.text,
         fontFamily: fontStacks.body,
         padding: "2.5rem 1.5rem",
