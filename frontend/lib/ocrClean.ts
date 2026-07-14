@@ -288,6 +288,18 @@ export function cleanOCRName(
   // 1. Normalize bullet chars to periods (before any other transform).
   let s = normalizeBullets(name);
 
+  // 1a. Drop a leading "(Ex W9GZI ...)" cross-reference group — it's a
+  //     previous-callsign note the parser left glued to the name
+  //     (e.g. "(Ex W9GZI & W0GZI)-James W. (Bill) Harvey").
+  s = s.replace(/^\s*\(?\s*[Ee][Xx][ .-][^)]{0,40}\)\s*[-–—:]*\s*/, "");
+
+  // 1b. Normalize curly quotes to apostrophes and map the OCR'd "$"→"S"
+  //     ("Relph S$. Wortley"), then strip characters that are never
+  //     legitimate in a personal name (angle brackets, guillemets, pipes,
+  //     backslashes, brackets/braces, math/currency symbols).
+  s = s.replace(/[’‘`]/g, "'").replace(/S\$|\$S|\$/g, "S");
+  s = s.replace(/[<>«»|\\*=_{}\[\]?°£¥%^#@\/"”“]/g, " ");
+
   // 2. Collapse multiple whitespace to single space.
   s = s.replace(/\s+/g, " ");
 
