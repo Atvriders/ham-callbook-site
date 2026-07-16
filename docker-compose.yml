@@ -2,7 +2,7 @@ services:
   data-init:
     image: alpine:3.20
     environment:
-      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v6}"
+      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v7}"
     volumes:
       - app_data:/data
     command:
