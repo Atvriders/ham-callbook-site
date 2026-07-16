@@ -2,7 +2,7 @@ services:
   data-init:
     image: alpine:3.20
     environment:
-      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v7}"
+      DATA_BASE: "https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG:-data-v8}"
     volumes:
       - app_data:/data
     command:
@@ -13,7 +13,7 @@ services:
           echo "[data-init] data for $$DATA_BASE already present — skipping download."; exit 0
         fi
         apk add --no-cache curl >/dev/null
-        echo "[data-init] downloading database (~860 MB gz, one time)…"
+        echo "[data-init] downloading database (~1.2 GB gz, one time)…"
         curl -fSL "$$DATA_BASE/USA_Ham_Callbooks.sqlite.gz" -o /data/db.gz
         echo "[data-init] extracting database…"
         gunzip -c /data/db.gz > /data/db.partial && mv /data/db.partial /data/USA_Ham_Callbooks.sqlite
