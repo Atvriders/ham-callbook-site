@@ -44,7 +44,7 @@ import { notFound } from "next/navigation";
 
 import { callsignClub } from "../../../lib/club_api";
 import { colors, fontStacks, motifs } from "../../../lib/design";
-import { cleanOCRName, cleanOCRCity, cleanOCRState, classLabelForCode } from "../../../lib/ocrClean";
+import { cleanOCRName, cleanOCRCity, cleanOCRState, cleanOCRZip, classLabelForCode } from "../../../lib/ocrClean";
 import ClubBadge from "../../../components/ClubBadge";
 import EraTag from "../../../components/EraTag";
 import LicenseClassPip from "../../../components/LicenseClassPip";
@@ -810,7 +810,7 @@ function SectionHeader({
 function LatestRecordCard({ detail, isClub = false }: { detail: CallsignDetail; isClub?: boolean }) {
   const l = detail.latest;
   const addr = joinNonEmpty([l.address]);
-  const cityLine = joinNonEmpty([cleanOCRCity(l.city), cleanOCRState(l.city, l.state), l.zip], " ");
+  const cityLine = joinNonEmpty([cleanOCRCity(l.city), cleanOCRState(l.city, l.state), cleanOCRZip(l.zip)], " ");
   return (
     <section
       aria-labelledby="latest-heading"
@@ -2304,6 +2304,10 @@ function HeroStatusStrip({ holder }: { holder: CurrentHolder }) {
         }.`
       : null;
 
+  // OCR-sanitized ZIP — '' when the raw value is unrecoverable junk, so the
+  // whole "ZIP …" chip hides rather than rendering garbage.
+  const holderZip = cleanOCRZip(holder.zip);
+
   return (
     <div
       style={{
@@ -2373,10 +2377,10 @@ function HeroStatusStrip({ holder }: { holder: CurrentHolder }) {
           </span>
         ) : null}
 
-        {holder.zip ? (
+        {holderZip ? (
           <span>
             <span style={{ opacity: 0.6 }}>ZIP </span>
-            <span style={{ color: colors.text }}>{holder.zip}</span>
+            <span style={{ color: colors.text }}>{holderZip}</span>
           </span>
         ) : null}
       </div>
@@ -2628,7 +2632,7 @@ function FccLicenseChain({ chain }: { chain: UlsChain | null | undefined }) {
  */
 function ArchiveSummary({ detail, isClub = false }: { detail: CallsignDetail; isClub?: boolean }) {
   const l = detail.latest;
-  const cityLine = joinNonEmpty([cleanOCRCity(l.city), cleanOCRState(l.city, l.state), l.zip], " ");
+  const cityLine = joinNonEmpty([cleanOCRCity(l.city), cleanOCRState(l.city, l.state), cleanOCRZip(l.zip)], " ");
   return (
     <div
       style={{

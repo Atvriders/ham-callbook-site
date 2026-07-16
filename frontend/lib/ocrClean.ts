@@ -552,7 +552,57 @@ export function cleanOCRState(
 }
 
 // ---------------------------------------------------------------------------
-// 4. classLabelForCode
+// 4. cleanOCRZip
+// ---------------------------------------------------------------------------
+
+/**
+ * OCR letter→digit substitution map for the ZIP field.
+ *
+ * The mid-1990s Winter editions were scanned from a broken font whose digits
+ * OCR'd as look-alike letters ('45S50', '9B237', '50ll7'). The map is
+ * case-insensitive where unambiguous; 'B'/'b' differ by case because
+ * uppercase B mimics 8 while lowercase b mimics 6.
+ */
+const ZIP_OCR_DIGIT: Record<string, string> = {
+  B: "8", b: "6",
+  l: "1", L: "1", I: "1", i: "1",
+  O: "0", o: "0",
+  D: "0", d: "0",
+  S: "5", s: "5",
+  Z: "2", z: "2",
+  G: "6", g: "6",
+};
+
+/**
+ * Clean an OCR'd ZIP code for display.
+ *
+ * 1. Maps known OCR letter-for-digit substitutions (B→8, l/I→1, b→6, O/D→0,
+ *    S→5, Z→2, G→6).
+ * 2. Accepts exactly a 5-digit ZIP or a hyphenated ZIP+4; a bare 9-digit
+ *    string (the QRZ CD-ROM import artifact) is re-hyphenated as ZIP5-ZIP4.
+ * 3. Anything else after mapping is OCR junk — returns '' so the caller
+ *    hides it rather than displaying garbage.
+ */
+export function cleanOCRZip(zip: string | null | undefined): string {
+  if (!zip) return "";
+
+  // 1. Trim, then map OCR letter-for-digit substitutions.
+  const mapped = zip
+    .trim()
+    .replace(/[A-Za-z]/g, (ch) => ZIP_OCR_DIGIT[ch] ?? ch);
+
+  // 2. Accept exactly ZIP5 or ZIP5-ZIP4.
+  if (/^\d{5}$/.test(mapped) || /^\d{5}-\d{4}$/.test(mapped)) return mapped;
+
+  // 3. Bare 9 digits = hyphenless ZIP+4 — insert the hyphen.
+  if (/^\d{9}$/.test(mapped)) return `${mapped.slice(0, 5)}-${mapped.slice(5)}`;
+
+  // 4. Residual junk: hide it.
+  return "";
+}
+
+// ---------------------------------------------------------------------------
+// 5. classLabelForCode
 // ---------------------------------------------------------------------------
 
 /**
