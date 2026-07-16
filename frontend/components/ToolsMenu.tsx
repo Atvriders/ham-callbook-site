@@ -33,6 +33,8 @@ const toolGroups: { href: string; label: string }[][] = [
   [
     { href: "/qsl-dating", label: "QSL dating" },
     { href: "/changes", label: "Changes" },
+    { href: "/address", label: "Address time machine" },
+    { href: "/restore", label: "Restore queue" },
     { href: "/data", label: "Data" },
     { href: "/random", label: "Random callsign" },
   ],

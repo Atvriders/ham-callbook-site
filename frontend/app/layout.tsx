@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Geist } from "next/font/google";
 import Link from "next/link";
-import { Radio, Search, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch, MapPin, AlertCircle } from "lucide-react";
+import { Radio, Search, Users, BarChart3 } from "lucide-react";
 import ToolsMenu from "@/components/ToolsMenu";
 import SearchBar from "@/components/SearchBar";
 import "./globals.css";
@@ -83,6 +83,8 @@ export const viewport: Viewport = {
    --------------------------------------------------------------------------- */
 
 function Nav() {
+  // Core four only — everything else lives in the Tools menu. A crowded bar
+  // clipped mid-item at common widths; the slim bar never scrolls on desktop.
   const items = [
     // On <sm screens the labels hide and this Search icon is the mobile
     // fallback for the compact SearchBar (which is hidden below sm).
@@ -90,13 +92,6 @@ function Nav() {
     { href: "/browse", label: "Browse", Icon: Radio },
     { href: "/clubs", label: "Clubs", Icon: Users },
     { href: "/stats", label: "Stats", Icon: BarChart3 },
-    { href: "/records", label: "Records", Icon: Trophy },
-    { href: "/changes", label: "Changes", Icon: GitCompare },
-    { href: "/qsl-dating", label: "QSL", Icon: FileSearch },
-    { href: "/data", label: "Data", Icon: Database },
-    { href: "/people", label: "People", Icon: UserSearch },
-    { href: "/address", label: "Address", Icon: MapPin },
-    { href: "/restore", label: "Restore", Icon: AlertCircle },
   ];
   return (
     <header className="site-header border-b border-[color:var(--color-border)] bg-[color:var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-50">
@@ -110,7 +105,7 @@ function Nav() {
           <span className="font-display text-lg font-bold tracking-tightest text-[color:var(--color-text)] group-hover:text-[color:var(--color-accent)] transition-colors">
             CALLBOOK<span className="amber-glow-soft text-[color:var(--color-accent)]">.</span>ARCHIVE
           </span>
-          <span className="eyebrow hidden md:inline">USA · 1925 — Present</span>
+          <span className="eyebrow hidden lg:inline whitespace-nowrap">USA · 1925 — Present</span>
         </Link>
         {/* min-w-0 lets the nav shrink inside the justify-between row so the
             icon strip can scroll sideways on narrow screens instead of

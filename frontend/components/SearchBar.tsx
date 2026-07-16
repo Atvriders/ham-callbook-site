@@ -130,7 +130,7 @@ export default function SearchBar({
   const effectivePlaceholder = useMemo(() => {
     if (placeholder) return placeholder;
     return compact
-      ? "search callsigns, ops, cities…"
+      ? "search…"
       : "W1AW  ·  Hiram Percy Maxim  ·  Newington, CT";
   }, [compact, placeholder]);
 
@@ -352,10 +352,11 @@ export default function SearchBar({
             </kbd>
           </span>
         ) : (
-          // Compact mode shows a tiny "/" hint pill as well, smaller
+          // Compact mode: spell the hotkey out — a bare "/" pill read as noise.
+          // Hidden once the input has focus or text so it never overlaps typing.
           <span
             aria-hidden
-            className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 select-none rounded border px-1.5 py-0 text-[10px] md:block"
+            className={`pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 select-none whitespace-nowrap rounded border px-1.5 py-0 text-[10px] ${focused || query ? "md:hidden" : "md:block"}`}
             style={{
               fontFamily: fontStacks.mono,
               color: colors.text_dim,
@@ -365,7 +366,7 @@ export default function SearchBar({
               letterSpacing: "0.05em",
             }}
           >
-            /
+            press <b style={{ color: colors.accent, fontWeight: 600 }}>/</b> to search
           </span>
         )}
 
@@ -399,6 +400,8 @@ export default function SearchBar({
           style={{
             ...inputStyle,
             paddingLeft: compact ? "2rem" : "2.5rem",
+            // keep typed/placeholder text clear of the hotkey hint pill
+            paddingRight: compact && !focused && !query ? "7.5rem" : compact ? "0.75rem" : undefined,
           }}
         />
       </div>
