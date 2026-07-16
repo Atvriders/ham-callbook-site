@@ -279,6 +279,8 @@ export function cleanOCRNameWithConfidence(
 /**
  * Clean an operator or club name string, collapsing OCR noise and spaced-out letters.
  */
+const HARD_CAP=(s:string,n:number):string=>s.length>n?s.slice(0,n-1).trimEnd()+"\u2026":s;
+
 export function cleanOCRName(
   name: string | null | undefined,
   _year?: number | null,
@@ -394,7 +396,7 @@ export function cleanOCRName(
     if (!hasRealWord) return "";
   }
 
-  return s;
+  return HARD_CAP(s, 90);
 }
 
 // ---------------------------------------------------------------------------
@@ -501,9 +503,11 @@ export function cleanOCRCity(
   // fall back to global match (all states) so cleanup still works at call sites that
   // don't have a state context (e.g. the per-row history table when row.state is null).
   const match = fuzzyMatchCity(s, state);
-  if (match) return match;
+  if (match) return HARD_CAP(match, 60);
 
-  return s;
+  // Hard length cap — a "city" longer than any real US place name is OCR page-bleed
+  // (worst seen in the wild: 9,889 chars). Never let it destroy a layout.
+  return HARD_CAP(s, 60);
 }
 
 // ---------------------------------------------------------------------------

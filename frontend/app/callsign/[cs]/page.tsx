@@ -634,7 +634,8 @@ function cleanMergedAddress(addr: string | null | undefined): string | null | un
     const cut = m.index + m[0].length;
     if (addr.slice(cut).trim().length > 20) return addr.slice(0, cut).trim();
   }
-  return addr;
+  // final guard: an "address" beyond ~160 chars is OCR page-bleed — clamp for display
+  return addr.length > 160 ? addr.slice(0, 159).trimEnd() + "\u2026" : addr;
 }
 
 /**
@@ -1242,10 +1243,12 @@ function HoldersTimeline({ holders }: { holders: HoldersHistoryResult }) {
                 y={yTop + ROW_H / 2 + 4}
                 textAnchor="end"
                 fontFamily={fontStacks.display}
-                fontSize={13}
+                fontSize={12}
                 fill={colors.text}
               >
-                {cleanOCRName(h.display_name).slice(0, 28)}
+                {/* 24 chars @12px Fraunces stays inside the 220px gutter; longer names get an ellipsis */}
+                {(() => { const n = cleanOCRName(h.display_name); return n.length > 24 ? n.slice(0, 23).trimEnd() + "\u2026" : n; })()}
+                <title>{cleanOCRName(h.display_name)}</title>
               </text>
               {/* Span bar */}
               <rect
@@ -1270,17 +1273,20 @@ function HoldersTimeline({ holders }: { holders: HoldersHistoryResult }) {
                   />
                 );
               })}
-              {/* First/last year flanks */}
-              <text
-                x={x1 - 6}
-                y={yTop + ROW_H / 2 + 4}
-                textAnchor="end"
-                fontFamily={fontStacks.mono}
-                fontSize={10}
-                fill={colors.text_dim}
-              >
-                {h.first_year}
-              </text>
+              {/* First/last year flanks — the left flank is skipped when the bar
+                  starts near the gutter, where it collided with the name label */}
+              {x1 - PAD_LEFT > 40 ? (
+                <text
+                  x={x1 - 6}
+                  y={yTop + ROW_H / 2 + 4}
+                  textAnchor="end"
+                  fontFamily={fontStacks.mono}
+                  fontSize={10}
+                  fill={colors.text_dim}
+                >
+                  {h.first_year}
+                </text>
+              ) : null}
               <text
                 x={x2 + 6}
                 y={yTop + ROW_H / 2 + 4}
