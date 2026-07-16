@@ -11,7 +11,8 @@
  *     pre-1928   — pre-Radio Act / pre-three-letter-prefix era
  *     1928-1962  — modern call districts established; pre-Incentive
  *     1963-1997  — Incentive Licensing through the no-code restructuring
- *     2003       — post-2000 restructuring (Tech-No-Code, vanity calls)
+ *     1999-2003  — CD-ROM era: the two Flying Horse CD-ROM editions that
+ *                  extend the corpus past the end of print
  *
  * The chip lets the UI tell the reader "this 1947 row was issued under
  * the same rules as a 1955 row" without an essay.
@@ -32,7 +33,7 @@ import { colors, fontStacks } from "@/lib/design";
 // Canonical eras
 // ---------------------------------------------------------------------------
 
-export type Era = "pre-1928" | "1928-1962" | "1963-1997" | "2003";
+export type Era = "pre-1928" | "1928-1962" | "1963-1997" | "1999-2003";
 
 interface EraSpec {
   label: string;
@@ -64,10 +65,10 @@ const ERA_SPEC: Record<Era, EraSpec> = {
     accent: colors.accent,
     wash: "rgba(255, 163, 11, 0.06)",
   },
-  "2003": {
-    label: "2003",
+  "1999-2003": {
+    label: "1999–2003",
     description:
-      "Post-2000 restructuring (no-code Tech, vanity calls, modern ULS).",
+      "CD-ROM era — the 1999 and 2003 CD-ROM editions that extend the corpus past the end of print (no-code Tech, vanity calls, modern ULS).",
     accent: colors.glow,
     wash: "rgba(255, 209, 102, 0.08)",
   },
@@ -75,15 +76,16 @@ const ERA_SPEC: Record<Era, EraSpec> = {
 
 /**
  * Map a year integer into the canonical era it belongs to. Years past
- * 1997 are bucketed into the "2003" era because that's the only post-
- * restructuring edition this corpus carries; mid-range odd years fall to
- * the nearest preceding era boundary.
+ * 1997 are bucketed into the "1999-2003" CD-ROM era — the corpus ends
+ * print in 1997 and carries exactly two post-print CD-ROM editions
+ * (1999 and 2003); mid-range odd years fall to the nearest preceding
+ * era boundary.
  */
 export function eraForYear(year: number): Era {
   if (year < 1928) return "pre-1928";
   if (year <= 1962) return "1928-1962";
   if (year <= 1997) return "1963-1997";
-  return "2003";
+  return "1999-2003";
 }
 
 // ---------------------------------------------------------------------------

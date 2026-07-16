@@ -128,8 +128,10 @@ export function USMap({ points }: { points: StatePoint[] }) {
           aria-label="US state appearance heatmap"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(13, minmax(2.25rem, 1fr))",
-            gridAutoRows: "minmax(2.25rem, auto)",
+            // 2.5rem minimum tracks => 40px tap targets on touch devices;
+            // the wrapper scrolls horizontally so the width cost is free.
+            gridTemplateColumns: "repeat(13, minmax(2.5rem, 1fr))",
+            gridAutoRows: "minmax(2.5rem, auto)",
             gap: "0.25rem",
             minWidth: "32rem",
           }}
@@ -161,7 +163,7 @@ export function USMap({ points }: { points: StatePoint[] }) {
                   alignItems: "center",
                   justifyContent: "center",
                   padding: "0.25rem",
-                  minHeight: "2.25rem",
+                  minHeight: "2.5rem",
                   color: i > 0.6 ? colors.bg : colors.text,
                   fontFamily: fontStacks.mono,
                   fontSize: "0.7rem",

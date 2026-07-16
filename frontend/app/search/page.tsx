@@ -47,6 +47,8 @@ import type {
   SearchResults,
 } from "../../lib/types";
 import { cleanOCRName, cleanOCRCity, cleanOCRState } from "../../lib/ocrClean";
+import SearchPager, { SearchSortSelect } from "@/components/SearchPager";
+import RecentCallsigns from "@/components/RecentCallsigns";
 
 // ---------------------------------------------------------------------------
 // Tunables.
@@ -64,6 +66,10 @@ const MAX_PER_PAGE = 100;
 
 /** Hard cap on `page` so a hostile URL can't blow up the API. */
 const MAX_PAGE = 400;
+
+/** Result orderings surfaced by the sort select. `score` is the default. */
+const SORT_VALUES = ["score", "year", "year_desc", "callsign"] as const;
+type SortValue = (typeof SORT_VALUES)[number];
 
 // ---------------------------------------------------------------------------
 // Query-param plumbing.
@@ -101,6 +107,41 @@ function intParam(
 }
 
 /**
+ * Normalize the `sort` query param. Anything outside the allow-list
+ * collapses to the default (`score`) so hand-crafted URLs never break.
+ */
+function normSort(raw: string | undefined): SortValue {
+  return (SORT_VALUES as readonly string[]).includes(raw ?? "")
+    ? (raw as SortValue)
+    : "score";
+}
+
+/**
+ * Order the current page of hits for a non-default sort. The `sort`
+ * param is also forwarded to `/api/search`; until the backend orders
+ * the full result set itself this gives a within-page ordering, and
+ * once it does this stable re-sort becomes a harmless no-op.
+ */
+function sortHits(hits: SearchHit[], sort: SortValue): SearchHit[] {
+  if (sort === "score") return hits;
+  const sorted = [...hits];
+  if (sort === "year") {
+    sorted.sort(
+      (a, b) => a.year - b.year || a.callsign.localeCompare(b.callsign),
+    );
+  } else if (sort === "year_desc") {
+    sorted.sort(
+      (a, b) => b.year - a.year || a.callsign.localeCompare(b.callsign),
+    );
+  } else {
+    sorted.sort(
+      (a, b) => a.callsign.localeCompare(b.callsign) || a.year - b.year,
+    );
+  }
+  return sorted;
+}
+
+/**
  * Normalize a state code: trims, uppercases, validates against the
  * 2-letter shape. Anything else collapses to `undefined` so the API
  * doesn't 400 on garbage like `?state=California`.
@@ -131,6 +172,7 @@ async function fetchSearch(params: {
   year?: number;
   state?: string;
   edition?: string;
+  sort?: SortValue;
   limit: number;
   offset: number;
 }): Promise<SearchResults | null> {
@@ -139,6 +181,10 @@ async function fetchSearch(params: {
   if (params.year !== undefined) usp.set("year", String(params.year));
   if (params.state !== undefined) usp.set("state", params.state);
   if (params.edition !== undefined) usp.set("edition", params.edition);
+  // Forwarded for when the backend implements result ordering; FastAPI
+  // ignores unknown query params, so this is safe today.
+  if (params.sort !== undefined && params.sort !== "score")
+    usp.set("sort", params.sort);
   usp.set("limit", String(params.limit));
   usp.set("offset", String(params.offset));
 
@@ -172,6 +218,7 @@ function buildHref(
     year?: number;
     state?: string;
     edition?: string;
+    sort?: SortValue;
     page?: number;
     per?: number;
   },
@@ -180,6 +227,7 @@ function buildHref(
     year: number | undefined;
     state: string | undefined;
     edition: string | undefined;
+    sort: SortValue | undefined;
     page: number | undefined;
     per: number | undefined;
   }>,
@@ -190,6 +238,9 @@ function buildHref(
   if (merged.year !== undefined) usp.set("year", String(merged.year));
   if (merged.state) usp.set("state", merged.state);
   if (merged.edition) usp.set("edition", merged.edition);
+  // `score` is the default sort and never clutters the URL.
+  if (merged.sort !== undefined && merged.sort !== "score")
+    usp.set("sort", merged.sort);
   if (merged.page !== undefined && merged.page > 1)
     usp.set("page", String(merged.page));
   if (merged.per !== undefined && merged.per !== DEFAULT_PER_PAGE)
@@ -570,6 +621,7 @@ function YearSpectrum({
     year?: number;
     state?: string;
     edition?: string;
+    sort?: SortValue;
   };
 }) {
   if (years.length === 0) {
@@ -708,6 +760,7 @@ function FacetsSidebar({
     year?: number;
     state?: string;
     edition?: string;
+    sort?: SortValue;
   };
 }) {
   // Years: cap to top-30 (by count) for the spectrum so the strip stays
@@ -1085,8 +1138,20 @@ function NoSignalScope() {
  * tasteful prose explanation and four sample queries the user can try.
  * Renders only when the user has typed a query and got zero rows back.
  */
+/**
+ * Loose US-callsign shape: 1-2 letter prefix, digit, 1-4 letter suffix.
+ * Used only to decide whether the zero-result recovery link is worth
+ * offering — the callsign page renders its own empty state if the call
+ * isn't in the corpus.
+ */
+const PLAUSIBLE_CALLSIGN = /^[a-z]{1,2}[0-9][a-z]{1,4}$/i;
+
 function EmptyResults({ q }: { q: string }) {
   const suggestions = ["W1AW", "Hiram Maxim", "Newington", "K6"];
+  const trimmed = q.trim();
+  const asCallsign = PLAUSIBLE_CALLSIGN.test(trimmed)
+    ? trimmed.toUpperCase()
+    : null;
   return (
     <div
       className="sv-rise"
@@ -1154,6 +1219,28 @@ function EmptyResults({ q }: { q: string }) {
           gap: "0.5rem",
         }}
       >
+        {/* Zero-result recovery: FTS missed, but the query itself looks
+            like a callsign — offer the direct detail-page route. */}
+        {asCallsign !== null && (
+          <a
+            href={`/callsign/${encodeURIComponent(asCallsign)}`}
+            style={{
+              padding: "0.5rem 0.875rem",
+              fontFamily: fontStacks.mono,
+              fontSize: "0.75rem",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              border: `1px solid ${colors.accent}`,
+              color: colors.bg,
+              background: colors.accent,
+              textDecoration: "none",
+              borderRadius: "0.15rem",
+              fontWeight: 700,
+            }}
+          >
+            try {asCallsign} as a callsign →
+          </a>
+        )}
         {suggestions.map((s) => (
           <a
             key={s}
@@ -1239,6 +1326,11 @@ function EmptyPrompt() {
         ), operator name, or city. Filter the results with the year spectrum
         and state readout on the right.
       </p>
+      {/* Recently-viewed strip — client component, self-hides when the
+          visitor hasn't opened any callsign pages yet. */}
+      <RecentCallsigns
+        style={{ marginTop: "1.75rem", justifyContent: "center" }}
+      />
     </div>
   );
 }
@@ -1458,113 +1550,6 @@ function ResultsTable({ hits }: { hits: SearchHit[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Pagination strip.
-// ---------------------------------------------------------------------------
-
-function Pagination({
-  current,
-  page,
-  per,
-  total,
-}: {
-  current: {
-    q?: string;
-    year?: number;
-    state?: string;
-    edition?: string;
-  };
-  page: number;
-  per: number;
-  total: number;
-}) {
-  const totalPages = Math.max(1, Math.min(MAX_PAGE, Math.ceil(total / per)));
-  if (totalPages <= 1) return null;
-
-  const prev = page > 1 ? page - 1 : null;
-  const next = page < totalPages ? page + 1 : null;
-
-  const linkStyle = (active: boolean): React.CSSProperties => ({
-    padding: "0.5rem 0.9rem",
-    fontFamily: fontStacks.mono,
-    fontSize: "0.78rem",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    color: active ? colors.bg : colors.accent,
-    background: active ? colors.accent : "transparent",
-    border: `1px solid ${colors.accent_2}`,
-    textDecoration: "none",
-    borderRadius: "0.15rem",
-  });
-
-  const disabledStyle: React.CSSProperties = {
-    ...linkStyle(false),
-    color: colors.border,
-    borderColor: colors.border,
-    cursor: "not-allowed",
-  };
-
-  return (
-    <nav
-      aria-label="Results pagination"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "1rem",
-        marginTop: "2rem",
-        paddingTop: "1.25rem",
-        borderTop: `1px solid ${colors.border}`,
-      }}
-    >
-      <span
-        style={{
-          fontFamily: fontStacks.mono,
-          fontSize: "0.7rem",
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: colors.text_dim,
-        }}
-      >
-        Page{" "}
-        <span style={{ color: colors.accent }}>
-          {page.toString().padStart(3, "0")}
-        </span>{" "}
-        of {totalPages.toString().padStart(3, "0")} · {total.toLocaleString()}{" "}
-        rows
-      </span>
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        {prev !== null ? (
-          <a
-            href={buildHref(current, { page: prev, per })}
-            style={linkStyle(false)}
-            rel="prev"
-          >
-            ← Prev
-          </a>
-        ) : (
-          <span style={disabledStyle} aria-disabled>
-            ← Prev
-          </span>
-        )}
-        {next !== null ? (
-          <a
-            href={buildHref(current, { page: next, per })}
-            style={linkStyle(false)}
-            rel="next"
-          >
-            Next →
-          </a>
-        ) : (
-          <span style={disabledStyle} aria-disabled>
-            Next →
-          </span>
-        )}
-      </div>
-    </nav>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Page.
 // ---------------------------------------------------------------------------
 
@@ -1578,21 +1563,23 @@ export default async function SearchPage({
   const year = intParam(firstParam(sp.year), 1900, 2100);
   const state = normState(firstParam(sp.state));
   const edition = firstParam(sp.edition);
+  const sort = normSort(firstParam(sp.sort));
   const page = intParam(firstParam(sp.page), 1, MAX_PAGE) ?? 1;
   const per =
     intParam(firstParam(sp.per), 1, MAX_PER_PAGE) ?? DEFAULT_PER_PAGE;
   const offset = (page - 1) * per;
 
-  const current = { q, year, state, edition };
+  const current = { q, year, state, edition, sort };
 
   // Only call the API when we have a query — the backend rejects empty
   // strings with a 400, and the empty prompt state is more useful anyway.
   const results = q
-    ? await fetchSearch({ q, year, state, edition, limit: per, offset })
+    ? await fetchSearch({ q, year, state, edition, sort, limit: per, offset })
     : null;
 
-  const hits: SearchHit[] = results?.hits ?? [];
+  const hits: SearchHit[] = sortHits(results?.hits ?? [], sort);
   const total = results?.total ?? 0;
+  const totalPages = Math.max(1, Math.min(MAX_PAGE, Math.ceil(total / per)));
   const facets: SearchFacets = results?.facets ?? { years: [], states: [] };
 
   return (
@@ -1747,6 +1734,10 @@ export default async function SearchPage({
               // clears it via the active-filter chip in the sidebar.
               <input type="hidden" name="edition" value={edition} />
             )}
+            {sort !== "score" && (
+              // Preserve a non-default sort across form submissions.
+              <input type="hidden" name="sort" value={sort} />
+            )}
             <button
               type="submit"
               style={{
@@ -1831,8 +1822,10 @@ export default async function SearchPage({
                 style={{
                   ["--i" as string]: 0,
                   display: "flex",
-                  alignItems: "baseline",
+                  alignItems: "center",
                   justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "0.5rem 1rem",
                   marginBottom: "0.75rem",
                 }}
               >
@@ -1847,25 +1840,38 @@ export default async function SearchPage({
                 >
                   Results
                 </h2>
-                <span
+                <div
                   style={{
-                    fontFamily: fontStacks.mono,
-                    fontSize: "0.7rem",
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    color: colors.text_dim,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1.25rem",
+                    flexWrap: "wrap",
                   }}
                 >
-                  showing {(offset + 1).toLocaleString()}–
-                  {(offset + hits.length).toLocaleString()} of{" "}
-                  {total.toLocaleString()}
-                </span>
+                  <span
+                    style={{
+                      fontFamily: fontStacks.mono,
+                      fontSize: "0.7rem",
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: colors.text_dim,
+                    }}
+                  >
+                    showing {(offset + 1).toLocaleString()}–
+                    {(offset + hits.length).toLocaleString()} of{" "}
+                    {total.toLocaleString()}
+                  </span>
+                  <SearchSortSelect
+                    params={{ q, year, state, edition, per }}
+                    sort={sort}
+                  />
+                </div>
               </div>
               <ResultsTable hits={hits} />
-              <Pagination
-                current={current}
+              <SearchPager
+                params={{ q, year, state, edition, sort, per }}
                 page={page}
-                per={per}
+                totalPages={totalPages}
                 total={total}
               />
             </>

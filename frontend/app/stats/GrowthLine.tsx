@@ -107,6 +107,11 @@ export function GrowthLine({ points }: { points: YearPoint[] }) {
                 fontFamily: fontStacks.mono,
                 fontSize: 11,
               }}
+              // Explicit auto domain: the y-scale tracks dataMax, so the
+              // corrected 1999/2003 CD-ROM editions (~727K/731K vs the
+              // ~300K print-era peak) stretch the axis instead of
+              // clipping. Recharts picks nice ticks from this range.
+              domain={[0, "auto"]}
               tickFormatter={(v: number) =>
                 v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)
               }
@@ -140,6 +145,18 @@ export function GrowthLine({ points }: { points: YearPoint[] }) {
 }
 
 /**
+ * Round a positive value up to a "nice" axis ceiling: half a step of its
+ * decade (e.g. 731,000 → 750,000; 63,000 → 65,000; 284 → 300). Keeps the
+ * fallback chart's y-domain tidy no matter how spiky the data gets.
+ */
+function niceCeil(v: number): number {
+  if (v <= 0) return 1;
+  const pow = 10 ** Math.floor(Math.log10(v));
+  const step = pow / 2;
+  return Math.ceil(v / step) * step;
+}
+
+/**
  * Hand-rolled SVG sparkline with year-tick marginalia. Used when
  * Recharts isn't available so the page still has a real chart.
  */
@@ -156,11 +173,15 @@ function FallbackSparkline({ points }: { points: YearPoint[] }) {
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
   const yMax = Math.max(...ys);
+  // Round the y-domain up to a "nice" ceiling (half a decade step) so the
+  // 1999/2003 CD-ROM spike (~731K) reads against a 750k axis instead of a
+  // raw 731k one, and the line never kisses the top padding edge.
+  const yTop = niceCeil(yMax);
 
   const x = (year: number) =>
     padL + ((year - xMin) / (xMax - xMin || 1)) * (width - padL - padR);
   const y = (count: number) =>
-    height - padB - (count / (yMax || 1)) * (height - padT - padB);
+    height - padB - (count / (yTop || 1)) * (height - padT - padB);
 
   const path = points
     .map((p, i) => `${i === 0 ? "M" : "L"} ${x(p.year).toFixed(1)} ${y(p.count).toFixed(1)}`)
@@ -237,7 +258,7 @@ function FallbackSparkline({ points }: { points: YearPoint[] }) {
           fontFamily={fontStacks.mono}
           fill={colors.text_dim}
         >
-          {Math.round(yMax / 1000)}k
+          {yTop >= 1000 ? `${Math.round(yTop / 1000)}k` : String(yTop)}
         </text>
       </svg>
     </div>

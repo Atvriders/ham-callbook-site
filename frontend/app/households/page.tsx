@@ -195,7 +195,7 @@ function HouseholdRow({ hh, index }: { hh: Household; index: number }) {
   return (
     <a
       className="hh-rise hh-row"
-      href={`/address/${encodeURIComponent(hh.cluster_key)}`}
+      href={`/address?cluster=${encodeURIComponent(hh.cluster_key)}`}
       style={{
         ["--i" as string]: index % PAGE_SIZE,
         display: "grid",

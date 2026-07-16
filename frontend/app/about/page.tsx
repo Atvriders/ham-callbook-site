@@ -448,11 +448,12 @@ export default async function AboutPage() {
               color: colors.text_dim,
             }}
           >
-            Every printed United States amateur radio callbook from 1909 through
-            1997, OCR'd from scanned originals, cross-referenced edition against
-            edition, and anchored against the modern FCC ULS database. The
-            archive is built to be read — by historians, by operators, and by
-            the merely curious — not just queried.
+            The printed United States amateur radio callbooks 1909–1997,
+            extended by the 1999 &amp; 2003 CD-ROM editions — 9.26 million
+            records OCR'd from scanned originals, cross-referenced edition
+            against edition, and anchored against the modern FCC ULS database.
+            The archive is built to be read — by historians, by operators, and
+            by the merely curious — not just queried.
           </p>
         </div>
       </section>
@@ -474,7 +475,10 @@ export default async function AboutPage() {
       >
         <SectionEyebrow vol="Vol I" label="Provenance" />
         <SectionTitle>Where the bits came from.</SectionTitle>
+        {/* .collapse-two-col (globals.css) stacks this to one column on
+            narrow screens so the Source-ledger aside never gets crushed. */}
         <div
+          className="collapse-two-col"
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
@@ -728,7 +732,10 @@ export default async function AboutPage() {
         }}
       >
         <SectionEyebrow vol="Vol III" label="Accuracy" />
+        {/* .collapse-two-col (globals.css) stacks prose + headline-accuracy
+            panel into one column on narrow screens. */}
         <div
+          className="collapse-two-col"
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)",

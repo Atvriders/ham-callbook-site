@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, JetBrains_Mono, Geist } from "next/font/google";
 import Link from "next/link";
-import { Radio, Search, BookOpen, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch, MapPin, AlertCircle } from "lucide-react";
+import { Radio, Search, Users, BarChart3, Trophy, GitCompare, FileSearch, Database, UserSearch, MapPin, AlertCircle } from "lucide-react";
 import ToolsMenu from "@/components/ToolsMenu";
+import SearchBar from "@/components/SearchBar";
 import "./globals.css";
 
 /* ---------------------------------------------------------------------------
@@ -83,9 +84,10 @@ export const viewport: Viewport = {
 
 function Nav() {
   const items = [
+    // On <sm screens the labels hide and this Search icon is the mobile
+    // fallback for the compact SearchBar (which is hidden below sm).
     { href: "/search", label: "Search", Icon: Search },
-    { href: "/browse", label: "Callsigns", Icon: Radio },
-    { href: "/browse", label: "Editions", Icon: BookOpen },
+    { href: "/browse", label: "Browse", Icon: Radio },
     { href: "/clubs", label: "Clubs", Icon: Users },
     { href: "/stats", label: "Stats", Icon: BarChart3 },
     { href: "/records", label: "Records", Icon: Trophy },
@@ -116,19 +118,28 @@ function Nav() {
             container — a scroll container would clip its absolutely
             positioned menu — so it stays pinned at the right edge. */}
         <nav className="flex min-w-0 items-center gap-1 text-sm">
+          {/* Compact corpus search — client component ('use client' in
+              components/SearchBar.tsx), fine to mount from this server
+              layout. Sits OUTSIDE the nav-scroll overflow container so its
+              autocomplete popover never gets clipped; shrink-[2] lets it
+              compress before the icon strip does. Hidden below sm, where
+              the Search icon link in the strip covers /search instead. */}
+          <div className="hidden sm:block w-44 lg:w-56 min-w-[7rem] shrink-[2]">
+            <SearchBar compact />
+          </div>
           <div className="nav-scroll flex flex-nowrap items-center gap-1 overflow-x-auto">
             {items.map(({ href, label, Icon }) => (
               <Link
                 key={href}
                 href={href}
-                className="flex shrink-0 items-center gap-2 rounded-sm px-3 py-2.5 text-[color:var(--color-text-dim)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface)] transition-colors no-underline"
+                className="flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-2 rounded-sm px-3 py-2.5 text-[color:var(--color-text-dim)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface)] transition-colors no-underline"
               >
                 <Icon size={14} aria-hidden />
                 <span className="hidden sm:inline">{label}</span>
               </Link>
             ))}
           </div>
-          {/* Tools dropdown — groups the four Wave-4 feature pages */}
+          {/* Tools dropdown — feature pages grouped by kind */}
           <ToolsMenu />
         </nav>
       </div>
@@ -156,22 +167,28 @@ function Footer() {
         </div>
         <div>
           <div className="eyebrow mb-2">Frequency</div>
+          {/* inline-block py-2 → ≥40px tap targets on touch devices */}
           <ul className="space-y-1">
             <li>
-              <Link href="/search">Search the archive</Link>
+              <Link href="/search" className="inline-block py-2.5">Search the archive</Link>
             </li>
             <li>
-              <Link href="/browse">Browse editions</Link>
+              <Link href="/browse" className="inline-block py-2.5">Browse editions</Link>
             </li>
             <li>
-              <Link href="/stats">Statistics</Link>
+              <Link href="/stats" className="inline-block py-2.5">Statistics</Link>
             </li>
             <li>
-              <Link href="/about">About the data</Link>
+              <Link href="/about" className="inline-block py-2.5">About the data</Link>
             </li>
             {externalLinks.map(({ href, label }) => (
               <li key={href}>
-                <a href={href} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block py-2.5"
+                >
                   {label}
                   <span
                     aria-hidden

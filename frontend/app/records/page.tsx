@@ -17,7 +17,7 @@
 
 import Link from "next/link";
 import { colors, fontStacks, motifs } from "../../lib/design";
-import { LeaderboardTable } from "../../components/records/LeaderboardTable";
+import { LinkedLeaderboard } from "./LinkedLeaderboard";
 import type { LeaderboardRow } from "../../components/records/LeaderboardTable";
 
 export const dynamic = "force-dynamic";
@@ -268,9 +268,10 @@ export default async function RecordsPage({ searchParams }: PageProps) {
               margin: 0,
             }}
           >
-            Callsigns and clubs that logged remarkable streaks across 94 years of
-            printed callbooks — from 1909 spark-gap operators to the digital era.
-            Every entry links to the full archive record.
+            Callsigns and clubs that logged remarkable streaks across the
+            printed callbooks 1909–1997, extended by the 1999 &amp; 2003 CD-ROM
+            editions — from spark-gap operators to the digital era. Every entry
+            links to the full archive record.
           </p>
         </div>
       </section>
@@ -439,7 +440,12 @@ export default async function RecordsPage({ searchParams }: PageProps) {
 
         <MorseDivider label={catMeta?.label ?? activeCat} />
 
-        <LeaderboardTable rows={rows} linkType={linkType} sortField={sortField} />
+        <LinkedLeaderboard
+          rows={rows}
+          linkType={linkType}
+          sortField={sortField}
+          category={activeCat}
+        />
 
         {/* Footer note */}
         <p
@@ -452,8 +458,9 @@ export default async function RecordsPage({ searchParams }: PageProps) {
             lineHeight: 1.5,
           }}
         >
-          Dataset: USA Ham Callbook Archive v2026.06. Spans 1909–2003 across{" "}
-          printed editions indexed by OCR + three-way correction. Minimum 3
+          Dataset: USA Ham Callbook Archive v2026.06. Spans the printed
+          callbooks 1909–1997 plus the 1999 &amp; 2003 CD-ROM editions, indexed
+          by OCR + three-way correction. Minimum 3
           qualifying editions required for individual-callsign categories.
           Accuracy ~97.1% (OCR-anchored). Cite original scan for
           primary-source genealogical proof.

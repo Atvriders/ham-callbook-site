@@ -19,7 +19,7 @@ the response inverts to a 0..1 scale so the UI can treat higher as better.
 Caching
 -------
 A process-local cachetools.TTLCache holds the last 100 result envelopes
-keyed by the full query+filters+limit+offset tuple. TTL = 5 minutes.
+keyed by the full query+filters+limit+offset+sort tuple. TTL = 5 minutes.
 """
 
 from __future__ import annotations
@@ -305,6 +305,17 @@ def _uls_hit(callsign: str) -> Optional[SearchHit]:
 
 router = APIRouter(prefix="/api", tags=["search"])
 
+# Whitelisted sort modes -> ORDER BY clauses. Only these exact strings are
+# ever interpolated into SQL; anything else 400s before query build. The
+# non-default modes keep bm25 `score` as a tie-breaker so relevance still
+# orders rows within a year / callsign.
+_SORT_ORDER_BY: dict[str, str] = {
+    "score":     "score",                  # bm25 relevance — the default
+    "year":      "e.year ASC, score",
+    "year_desc": "e.year DESC, score",
+    "callsign":  "e.callsign ASC, score",
+}
+
 
 @router.get("/search", response_model=SearchResults)
 def search(
@@ -314,6 +325,13 @@ def search(
     edition: Optional[str] = Query(None, min_length=1, max_length=64),
     limit: int = Query(25, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10_000),
+    sort: Optional[str] = Query(
+        None,
+        description=(
+            "Result ordering: score (bm25 relevance — default), "
+            "year, year_desc, callsign."
+        ),
+    ),
 ) -> SearchResults:
     q_norm = q.strip()
     if not q_norm:
@@ -323,12 +341,20 @@ def search(
     if state_norm is not None and state_norm not in US_STATES:
         raise HTTPException(status_code=400, detail=f"unknown state: {state}")
 
+    sort_norm = (sort or "score").strip().lower()
+    if sort_norm not in _SORT_ORDER_BY:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown sort: {sort!r} (expected one of "
+                   f"{sorted(_SORT_ORDER_BY)})",
+        )
+
     intent = _classify_query(q_norm)
     match_expr = _build_fts_match(q_norm, intent)
     if not match_expr:
         raise HTTPException(status_code=400, detail="query produced no searchable tokens")
 
-    cache_key = (q_norm.lower(), intent, year, state_norm, edition, limit, offset)
+    cache_key = (q_norm.lower(), intent, year, state_norm, edition, limit, offset, sort_norm)
     with _CACHE_LOCK:
         cached = _RESULT_CACHE.get(cache_key)
     if cached is not None:
@@ -370,7 +396,7 @@ def search(
         JOIN entries e ON e.rowid = entries_fts.rowid
         WHERE entries_fts MATCH ?
         {extra_sql}
-        ORDER BY score
+        ORDER BY {_SORT_ORDER_BY[sort_norm]}
         LIMIT ? OFFSET ?
     """
     hit_params = params + [limit, offset]

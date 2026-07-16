@@ -7,7 +7,7 @@
  * Geist Sans body. No Inter, no shadcn, no purple, no scale-105 hover.
  *
  * Section order:
- *   1. Hero — the 7.74M headline. Rendered via the <Headline/> client
+ *   1. Hero — the 9.26M headline. Rendered via the <Headline/> client
  *      component so Motion can tick the digits up from zero on mount.
  *      Opsz-144 Fraunces with the sodium-glow halo.
  *   2. <GrowthLine/> — Recharts line of entries per year (client chunk).
@@ -213,12 +213,13 @@ function OscilloscopeStrip({
 }
 
 /**
- * The five operator eras we slice the corpus into. The boundaries are
+ * The six operator eras we slice the corpus into. The boundaries are
  * the rough US license-class / printing regimes — Spark/pre-1928, Class
- * A/B/C codification through the postwar boom, the CRT/incentive era,
- * and the digital ULS era. The four era *motifs* in <EraCards/> are
- * keyed off the end-year of each span (pre-1928 deco, ≤1962 mid-century,
- * ≤1997 CRT, later digital sodium).
+ * A/B/C codification through the postwar boom, the CRT/incentive era
+ * that closes out print in 1997, and the CD-ROM coda (the 1999 & 2003
+ * CD-ROM editions). The four era *motifs* in <EraCards/> are keyed off
+ * the end-year of each span (pre-1928 deco, ≤1962 mid-century, ≤1997
+ * CRT, later digital sodium).
  */
 const ERAS: {
   key: string;
@@ -253,8 +254,14 @@ const ERAS: {
   {
     key: "modern",
     label: "Incentive + Modern",
-    span: [1968, 1999],
+    span: [1968, 1997],
     caption: "Incentive licensing, repeaters, packet, end of paper.",
+  },
+  {
+    key: "cdrom",
+    label: "CD-ROM Era",
+    span: [1999, 2003],
+    caption: "The two CD-ROM editions — the callbook outlives print.",
   },
 ];
 
@@ -282,10 +289,10 @@ export default async function StatsPage() {
   const stats = await fetchStats();
 
   // Defensive fallbacks so the page renders meaningfully even if the
-  // backend is unreachable (e.g. during a deploy). The 7.74M figure
-  // comes from the locked headline — it's the corpus total after the
-  // last 3-way correction pass.
-  const total = stats?.total_entries ?? 7_740_000;
+  // backend is unreachable (e.g. during a deploy). The 9.26M figure is
+  // the corpus total after the corrected 1999/2003 CD-ROM editions
+  // landed (printed callbooks 1909–1997 plus the two CD-ROM editions).
+  const total = stats?.total_entries ?? 9_260_000;
   const distinctCalls = stats?.distinct_callsigns ?? 0;
   const distinctHolders = stats?.distinct_holders_est ?? 0;
   const perYear = stats?.per_year ?? [];
@@ -360,10 +367,10 @@ export default async function StatsPage() {
                 color: colors.text_dim,
               }}
             >
-              Every printed callbook line we have scanned, OCR'd, three-way
-              corrected, and indexed for the United States amateur-radio
-              service between {ERAS[0]?.span[0] ?? 1909} and{" "}
-              {ERAS[ERAS.length - 1]?.span[1] ?? 1999}.
+              Every callbook line we have scanned, OCR'd, three-way corrected,
+              and indexed for the United States amateur-radio service — the
+              printed callbooks 1909–1997, extended by the 1999 &amp; 2003
+              CD-ROM editions.
               Approximately <strong style={{ color: colors.text }}>
                 {withCommas(total)}
               </strong>{" "}

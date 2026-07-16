@@ -50,6 +50,7 @@ import EraTag from "../../../components/EraTag";
 import LicenseClassPip from "../../../components/LicenseClassPip";
 import ProvenanceLine from "../../../components/ProvenanceLine";
 
+import ActionChips from "./ActionChips";
 import HeroCallsign from "./HeroCallsign";
 import Reveal from "./Reveal";
 import TuningKnob from "./TuningKnob";
@@ -77,6 +78,10 @@ interface CallsignLatest {
   state: string | null;
   zip: string | null;
   license_class: string | null;
+  /** Raw ingestion-source key (e.g. "qrz_cd_1999", "claude_ocr"). */
+  source?: string | null;
+  /** Data-quality flag (e.g. "abbyy-v1-recheck", "reverify-audit"). */
+  flag?: string | null;
 }
 
 interface StateTenure {
@@ -117,6 +122,10 @@ interface CallsignHistoryItem {
   // sandwiched between a different, agreeing state in the callsign's history.
   state_suspect?: boolean;
   state_consensus?: string | null;
+  /** Raw ingestion-source key (e.g. "qrz_cd_1999", "claude_ocr"). */
+  source?: string | null;
+  /** Data-quality flag (e.g. "abbyy-v1-recheck", "reverify-audit"). */
+  flag?: string | null;
 }
 
 interface HolderGroup {
@@ -261,6 +270,23 @@ interface DistrictCompanion {
   basis: string | null;
 }
 
+/** /api/callsign/{cs}/adjacent — alphabetically neighbouring callsigns. */
+interface AdjacentCallsigns {
+  prev?: string | null;
+  next?: string | null;
+}
+
+/** One QSL-manager route from the 1999/2003 QSL-manager CDs. */
+interface QslRoute {
+  year: number;
+  manager: string;
+}
+
+/** /api/qsl-routes/{cs} envelope. */
+interface QslRoutesResponse {
+  routes?: QslRoute[] | null;
+}
+
 // ---------------------------------------------------------------------------
 // ULS chain types (new endpoint: /api/callsign/{cs}/uls_chain)
 // ---------------------------------------------------------------------------
@@ -394,6 +420,7 @@ function Scanlines({ heavy = false }: { heavy?: boolean }) {
   return (
     <div
       aria-hidden
+      className="cs-print-hide"
       style={{
         position: "absolute",
         inset: 0,
@@ -426,6 +453,7 @@ function Grain() {
   return (
     <div
       aria-hidden
+      className="cs-print-hide"
       style={{
         position: "fixed",
         inset: 0,
@@ -443,6 +471,7 @@ function MorseDivider({ label }: { label?: string }) {
     <div
       role="separator"
       aria-label={label ?? "section divider"}
+      className="cs-print-hide"
       style={{
         display: "flex",
         alignItems: "center",
@@ -525,6 +554,72 @@ function isUsableQrzName(raw: string | null | undefined): boolean {
   if (n.startsWith("login is required")) return false;
   if (n === "n/a" || n === "unknown") return false;
   return true;
+}
+
+/**
+ * Map a raw per-entry ingestion-source key onto the friendly label the
+ * ProvenanceLine shows. Anything unrecognized (or missing — the common case
+ * for rows ingested before the source column existed) reads as the plain
+ * printed "Callbook".
+ */
+function friendlySourceLabel(source: string | null | undefined): string {
+  switch ((source ?? "").trim().toLowerCase()) {
+    case "qrz_cd_1999":
+      return "QRZ CD 1999";
+    case "qrz_cd_2003":
+      return "QRZ CD 2003";
+    case "claude_ocr":
+      return "Claude vision OCR";
+    case "abbyy_geometry":
+      return "ABBYY geometry";
+    default:
+      return "Callbook";
+  }
+}
+
+/** Data-quality flags that mean "this entry is queued for re-verification". */
+const RECHECK_FLAGS = new Set(["abbyy-v1-recheck", "reverify-audit"]);
+
+/**
+ * Tiny muted chip rendered next to a row/card's provenance when the entry
+ * carries a recheck-queue flag. Renders nothing for unflagged entries so
+ * call sites can pass the raw flag straight through.
+ */
+function RecheckChip({
+  flag,
+  style,
+}: {
+  flag?: string | null;
+  style?: React.CSSProperties;
+}) {
+  if (!flag || !RECHECK_FLAGS.has(flag)) return null;
+  return (
+    <span
+      title="This entry has been flagged for re-verification against the original scan and is queued for a recheck."
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.35em",
+        padding: "1px 6px",
+        border: `1px dashed ${colors.border}`,
+        borderRadius: 2,
+        fontFamily: fontStacks.mono,
+        fontSize: 10,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        color: colors.text_dim,
+        lineHeight: 1.4,
+        cursor: "help",
+        whiteSpace: "nowrap",
+        ...style,
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 9, opacity: 0.7 }}>
+        ⟳
+      </span>
+      recheck queued
+    </span>
+  );
 }
 
 const CLUB_KEYWORDS = /\b(club|arc|ares|races|amateur radio|society|assoc|league|univ|college|institute|school|scouts?|repeater|emergency|skywarn|mars|military|vfw|legion|radio assn)\b/i;
@@ -822,11 +917,12 @@ function LatestRecordCard({ detail, isClub = false }: { detail: CallsignDetail; 
 
       <div style={{ marginTop: "1rem" }}>
         <ProvenanceLine
-          source="Callbook"
+          source={friendlySourceLabel(l.source)}
           edition={l.edition}
           year={l.year}
           ocrPercent={null}
         />
+        <RecheckChip flag={l.flag} style={{ marginTop: "0.45rem" }} />
       </div>
     </section>
   );
@@ -1337,6 +1433,10 @@ function AppearancesTable({ history, showSource = false }: { history: CallsignHi
             }}
           >
             {cleanOCRName(row.name) || "—"}
+            <RecheckChip
+              flag={row.flag}
+              style={{ marginLeft: "0.5rem", verticalAlign: "middle" }}
+            />
           </div>
           <div
             role="cell"
@@ -2594,11 +2694,12 @@ function ArchiveSummary({ detail, isClub = false }: { detail: CallsignDetail; is
         ) : null}
         <div style={{ marginTop: "0.9rem" }}>
           <ProvenanceLine
-            source="Callbook"
+            source={friendlySourceLabel(l.source)}
             edition={l.edition}
             year={l.year}
             ocrPercent={null}
           />
+          <RecheckChip flag={l.flag} style={{ marginTop: "0.45rem" }} />
         </div>
       </div>
 
@@ -2699,6 +2800,253 @@ function UlsOnlyNote() {
   );
 }
 
+/**
+ * ‹ prev / next › — quiet sequential navigation through the callsign index,
+ * rendered directly under the hero callsign. Sides degrade independently:
+ * a missing neighbour simply isn't rendered, and the caller omits the whole
+ * nav when the /adjacent endpoint returned nothing.
+ */
+function AdjacentNav({ adjacent }: { adjacent: AdjacentCallsigns }) {
+  const prev = adjacent.prev ?? null;
+  const next = adjacent.next ?? null;
+  if (!prev && !next) return null;
+
+  const linkStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.5em",
+    // Comfortable touch target without visually inflating the row.
+    padding: "0.6rem 0.25rem",
+    color: colors.accent,
+    textDecoration: "none",
+  };
+  const glyphStyle: React.CSSProperties = {
+    color: colors.accent_2,
+    fontSize: "1.1em",
+    lineHeight: 1,
+  };
+
+  return (
+    <nav
+      aria-label="Adjacent callsigns"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.75rem",
+        fontFamily: fontStacks.mono,
+        fontSize: "0.78rem",
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color: colors.text_dim,
+      }}
+    >
+      {prev ? (
+        <a
+          href={`/callsign/${encodeURIComponent(prev)}`}
+          rel="prev"
+          title={`Previous callsign: ${prev}`}
+          style={linkStyle}
+        >
+          <span aria-hidden style={glyphStyle}>
+            ‹
+          </span>
+          {prev}
+        </a>
+      ) : null}
+      {prev && next ? (
+        <span aria-hidden style={{ opacity: 0.45 }}>
+          ·
+        </span>
+      ) : null}
+      {next ? (
+        <a
+          href={`/callsign/${encodeURIComponent(next)}`}
+          rel="next"
+          title={`Next callsign: ${next}`}
+          style={linkStyle}
+        >
+          {next}
+          <span aria-hidden style={glyphStyle}>
+            ›
+          </span>
+        </a>
+      ) : null}
+    </nav>
+  );
+}
+
+/**
+ * QSL manager routes card — "QSL via {manager} ({year})" rows sourced from
+ * the 1999/2003 QSL-manager CDs. Rendered in the related/cross-link area
+ * near the address clusters; hidden entirely when the endpoint 404s or
+ * returns no routes.
+ */
+function QslRoutesCard({ routes }: { routes: QslRoute[] }) {
+  return (
+    <div
+      style={{
+        position: "relative",
+        border: `1px solid ${colors.border}`,
+        background: colors.surface,
+        borderRadius: "0.25rem",
+        padding: "1.25rem 1.5rem",
+        maxWidth: "36rem",
+      }}
+    >
+      <CornerTicks />
+      <div
+        style={{
+          fontFamily: fontStacks.mono,
+          fontSize: "0.65rem",
+          letterSpacing: "0.32em",
+          textTransform: "uppercase",
+          color: colors.accent,
+          marginBottom: "0.75rem",
+        }}
+      >
+        QSL routes
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+        {routes.map((r, i) => (
+          <div
+            key={`${r.year}-${r.manager}-${i}`}
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: "0.6rem",
+              fontFamily: fontStacks.mono,
+              fontSize: "0.85rem",
+              color: colors.text,
+            }}
+          >
+            <span style={{ color: colors.text_dim }}>QSL via</span>
+            <span style={{ color: colors.accent, letterSpacing: "0.04em" }}>
+              {r.manager}
+            </span>
+            <span style={{ color: colors.text_dim, fontSize: "0.75rem" }}>
+              ({r.year})
+            </span>
+          </div>
+        ))}
+      </div>
+      <div
+        style={{
+          marginTop: "0.9rem",
+          paddingTop: "0.6rem",
+          borderTop: `1px dashed ${colors.border}`,
+          fontFamily: fontStacks.mono,
+          fontSize: "0.65rem",
+          letterSpacing: "0.1em",
+          color: colors.text_dim,
+        }}
+      >
+        from the 1999/2003 QSL-manager CDs
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Derive the current holder's surname from the latest record's name field.
+ * The corpus prints names surname-last in the display string, so we take the
+ * final whitespace token — guarded so a lone initial ("SMITH JOHN A" is
+ * cleaned upstream, but some rows end in one) never becomes a search term.
+ */
+function deriveSurname(name: string | null | undefined): string | null {
+  const cleaned = cleanOCRName(name ?? null);
+  if (!cleaned) return null;
+  const tokens = cleaned.split(/\s+/).filter((t) => /^[A-Za-z][A-Za-z'’-]*$/.test(t));
+  const last = tokens[tokens.length - 1];
+  if (!last || last.length < 2) return null;
+  return last;
+}
+
+/**
+ * Related-discovery cross-links — jump from this record to the search,
+ * people, and households indexes pre-filtered on the holder's surname.
+ * Card-link styling mirrors NearbyList so the block reads as kin to the
+ * Nearby grid directly above it.
+ */
+function RelatedDiscovery({ surname }: { surname: string }) {
+  const targets: Array<{ href: string; label: string; note: string }> = [
+    {
+      href: `/search?q=${encodeURIComponent(surname)}`,
+      label: "Search records",
+      note: "every edition row matching the surname",
+    },
+    {
+      href: `/people?q=${encodeURIComponent(surname)}`,
+      label: "People index",
+      note: "operators sharing the surname",
+    },
+    {
+      href: `/households?q=${encodeURIComponent(surname)}`,
+      label: "Households",
+      note: "family stations under one roof",
+    },
+  ];
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(15rem, 1fr))",
+        gap: "0.4rem",
+      }}
+    >
+      {targets.map((t) => (
+        <a
+          key={t.href}
+          href={t.href}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.2rem",
+            padding: "0.55rem 0.75rem",
+            border: `1px solid ${colors.border}`,
+            background: colors.surface,
+            color: colors.text,
+            textDecoration: "none",
+            fontFamily: fontStacks.mono,
+            borderRadius: "0.125rem",
+            transition: "border-color 200ms ease, color 200ms ease",
+          }}
+        >
+          <span
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: "0.5rem",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.85rem",
+                color: colors.accent,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {t.label}
+            </span>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                color: colors.text_dim,
+                letterSpacing: "0.06em",
+              }}
+            >
+              {surname}
+            </span>
+          </span>
+          <span style={{ fontSize: "0.7rem", color: colors.text_dim }}>
+            {t.note}
+          </span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page entry point.
 // ---------------------------------------------------------------------------
@@ -2743,7 +3091,7 @@ export default async function CallsignPage({ params }: PageProps) {
   // by upstream cache. ActivityPanel still does its own fetch under
   // Suspense — we don't share state between this top-level data load and
   // that subtree so the activity panel can render independently.
-  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain, printedLineage, addressClusters] =
+  const [detail, history, holders, nearby, clubInfo, ulsRecord, qrzEnvelope, districtCompanion, ulsChain, printedLineage, addressClusters, adjacent, qslRoutes] =
     await Promise.all([
       apiGet<CallsignDetail>(
         `/api/callsign/${encodeURIComponent(callsign)}`,
@@ -2776,6 +3124,15 @@ export default async function CallsignPage({ params }: PageProps) {
       apiGet<AddressClustersResponse>(
         `/api/address/callsign/${encodeURIComponent(callsign)}`,
       ).catch(() => null),
+      // Sequential ‹prev/next› neighbours. apiGet already maps 404/error to
+      // null — the hero nav is simply omitted when the endpoint is absent.
+      apiGet<AdjacentCallsigns>(
+        `/api/callsign/${encodeURIComponent(callsign)}/adjacent`,
+      ).catch(() => null),
+      // QSL-manager routes from the 1999/2003 CDs; card hidden on 404/error.
+      apiGet<QslRoutesResponse>(
+        `/api/qsl-routes/${encodeURIComponent(callsign)}`,
+      ).catch(() => null),
     ]);
 
   if (!detail) {
@@ -2793,6 +3150,15 @@ export default async function CallsignPage({ params }: PageProps) {
   // empty/"0–0" for it, which reads as broken — so we surface a clear note and
   // suppress the misleading archive-span chip.
   const ulsOnly = detail.editions_count === 0 && (history?.length ?? 0) === 0;
+
+  // QSL-manager routes (1999/2003 CDs) — normalized to a plain array so the
+  // card renders only when there is at least one usable route.
+  const qslRouteList: QslRoute[] = (qslRoutes?.routes ?? []).filter(
+    (r) => Boolean(r?.manager),
+  );
+
+  // Surname for the related-discovery cross-links; null skips the block.
+  const surname = deriveSurname(detail.latest.name);
 
   return (
     <main
@@ -2862,6 +3228,35 @@ export default async function CallsignPage({ params }: PageProps) {
         }
       `}</style>
 
+      {/* Print stylesheet — strips the decorative layers (grain, scanlines,
+          edge dials, morse dividers, the live-activity CRT and action chips)
+          and flattens the sodium-vapor palette to black-on-white so the
+          record prints clean. Stylesheet !important rules outrank the inline
+          styles used throughout the page. */}
+      <style>{`
+        @media print {
+          .cs-print-hide, .cs-edge-dial { display: none !important; }
+          main, main * {
+            color: #000000 !important;
+            background: transparent !important;
+            text-shadow: none !important;
+            box-shadow: none !important;
+          }
+          main {
+            overflow: visible !important;
+            background: #ffffff !important;
+          }
+          main a { text-decoration: none !important; }
+          /* Keep each appearances-table line intact across page breaks. The
+             rows are display:contents, so the avoidance goes on the cells. */
+          .cs-appearances [role="cell"],
+          .cs-appearances [role="columnheader"] {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+
       {/* --- HERO -------------------------------------------------------- */}
       <section
         style={{
@@ -2898,6 +3293,14 @@ export default async function CallsignPage({ params }: PageProps) {
           </Reveal>
 
           <HeroCallsign callsign={detail.latest.callsign} />
+
+          {/* ‹ prev / next › — sequential hop through the callsign index.
+              Fetched server-side; omitted when the endpoint is unavailable. */}
+          {adjacent && (adjacent.prev || adjacent.next) ? (
+            <Reveal delay={0.3}>
+              <AdjacentNav adjacent={adjacent} />
+            </Reveal>
+          ) : null}
 
           <Reveal delay={0.35}><DistrictReorgBanner data={districtCompanion ?? null} /></Reveal>
           <Reveal delay={0.37}><CallsignLineageChip lineage={ulsChain?.lineage ?? null} /></Reveal>
@@ -2956,6 +3359,12 @@ export default async function CallsignPage({ params }: PageProps) {
                   </span>
                 </a>
               ) : null}
+              {/* Copy / share / CSV / print — the page's touch actions.
+                  Client island; hidden when printing. */}
+              <ActionChips
+                callsign={detail.latest.callsign}
+                csvHref={`/api/callsign/${encodeURIComponent(detail.latest.callsign)}/export.csv`}
+              />
             </div>
           </Reveal>
 
@@ -3201,7 +3610,10 @@ export default async function CallsignPage({ params }: PageProps) {
             title="All appearances"
             tally={`${(history?.length ?? 0).toString().padStart(3, "0")} editions`}
           />
-          <AppearancesTable history={history ?? []} showSource />
+          {/* .cs-appearances scopes the print page-break-avoidance rules. */}
+          <div className="cs-appearances">
+            <AppearancesTable history={history ?? []} showSource />
+          </div>
         </Reveal>
       </section>
 
@@ -3210,7 +3622,7 @@ export default async function CallsignPage({ params }: PageProps) {
       </div>
 
       {/* --- ACTIVITY PANEL (Suspense) ----------------------------------- */}
-      <section style={PAGE_CONTAINER}>
+      <section style={PAGE_CONTAINER} className="cs-print-hide">
         <Reveal delay={0.05}>
           <SectionHeader
             kicker="On-air now"
@@ -3254,6 +3666,44 @@ export default async function CallsignPage({ params }: PageProps) {
           )}
         </Reveal>
       </section>
+
+      {/* --- RELATED DISCOVERY (surname cross-links) ---------------------- */}
+      {surname ? (
+        <>
+          <div style={PAGE_CONTAINER}>
+            <MorseDivider label="same surname" />
+          </div>
+          <section style={{ ...PAGE_CONTAINER, paddingBottom: "2rem" }}>
+            <Reveal delay={0.05}>
+              <SectionHeader
+                kicker="Follow the family"
+                title="Related records"
+                tally={surname.toUpperCase()}
+              />
+              <RelatedDiscovery surname={surname} />
+            </Reveal>
+          </section>
+        </>
+      ) : null}
+
+      {/* --- QSL MANAGER ROUTES ------------------------------------------ */}
+      {qslRouteList.length > 0 ? (
+        <>
+          <div style={PAGE_CONTAINER}>
+            <MorseDivider label="qsl routes" />
+          </div>
+          <section style={{ ...PAGE_CONTAINER, paddingBottom: "2rem" }}>
+            <Reveal delay={0.05}>
+              <SectionHeader
+                kicker="Card via"
+                title="QSL manager"
+                tally={`${qslRouteList.length.toString().padStart(2, "0")} route${qslRouteList.length === 1 ? "" : "s"}`}
+              />
+              <QslRoutesCard routes={qslRouteList} />
+            </Reveal>
+          </section>
+        </>
+      ) : null}
 
       {/* --- ADDRESS TIME MACHINE cross-links ----------------------------- */}
       {addressClusters && addressClusters.cluster_count > 0 ? (
@@ -3311,7 +3761,7 @@ export default async function CallsignPage({ params }: PageProps) {
       <div style={PAGE_CONTAINER}>
         <MorseDivider label="corrections desk" />
       </div>
-      <section style={{ ...PAGE_CONTAINER, paddingBottom: "2rem" }}>
+      <section style={{ ...PAGE_CONTAINER, paddingBottom: "2rem" }} className="cs-print-hide">
         <Reveal delay={0.05}>
           <SectionHeader kicker="Corrections" title="Suggest a correction" />
           <SuggestCorrection
@@ -3325,7 +3775,7 @@ export default async function CallsignPage({ params }: PageProps) {
       </section>
 
       {/* --- CITE THIS RECORD -------------------------------------------- */}
-      <section style={{ ...PAGE_CONTAINER, padding: "0 2rem 4rem" }}>
+      <section style={{ ...PAGE_CONTAINER, padding: "0 2rem 4rem" }} className="cs-print-hide">
         <CiteThisRecord
           recordType="callsign"
           identifier={callsign}
@@ -3338,7 +3788,7 @@ export default async function CallsignPage({ params }: PageProps) {
       </section>
 
       {/* --- GEDCOM DOWNLOAD --------------------------------------------- */}
-      <section style={{ ...PAGE_CONTAINER, padding: "0 2rem 5rem" }}>
+      <section style={{ ...PAGE_CONTAINER, padding: "0 2rem 5rem" }} className="cs-print-hide">
         <div
           style={{
             display: "flex",

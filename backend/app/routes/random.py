@@ -40,6 +40,7 @@ import random
 import re
 import sqlite3
 import threading
+from datetime import date
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -182,6 +183,54 @@ def _fetch_random_row(
     raise HTTPException(
         status_code=503,
         detail="Failed to draw a random row after retries",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Daily pick — deterministic "entry of the day".
+#
+# Same rowid-range trick as /random, but the RNG is a private
+# ``random.Random`` seeded with today's ISO date, so every worker (and every
+# request) lands on the SAME row for a given calendar day. The DB is
+# read-only, so the pick is memoized per-day in module state — after the
+# first request of the day this is a pure dict-tuple compare.
+# ---------------------------------------------------------------------------
+
+_DAILY_LOCK = threading.Lock()
+# (iso_date, entry) — replaced wholesale when the date rolls over.
+_DAILY_PICK: Optional[tuple[str, RandomEntry]] = None
+
+
+def _fetch_daily_row(conn: sqlite3.Connection, seed: str) -> sqlite3.Row:
+    """Deterministic variant of :func:`_fetch_random_row`.
+
+    All randomness comes from a ``random.Random(seed)`` instance, so the
+    retry sequence — and therefore the chosen row — is identical for every
+    process that shares the same (immutable) database and seed.
+    """
+    rng = random.Random(seed)
+    lo, hi = _rowid_bounds(conn)
+    sql = (
+        f"SELECT {_ENTRY_COLS} FROM entries "
+        f"WHERE rowid >= ? AND callsign IS NOT NULL "
+        f"ORDER BY rowid LIMIT 1"
+    )
+    for _ in range(8):
+        target = rng.randint(lo, hi)
+        row = conn.execute(sql, (target,)).fetchone()
+        if row is not None:
+            return row
+    # Tail-of-table miss on every attempt (pathological): deterministic
+    # wrap-around to the first eligible row.
+    row = conn.execute(
+        f"SELECT {_ENTRY_COLS} FROM entries WHERE callsign IS NOT NULL "
+        f"ORDER BY rowid LIMIT 1"
+    ).fetchone()
+    if row is not None:
+        return row
+    raise HTTPException(
+        status_code=503,
+        detail="Failed to draw the daily row — entries table appears empty",
     )
 
 
@@ -373,6 +422,37 @@ def random_entry(conn: sqlite3.Connection = Depends(get_db)) -> RandomEntry:
 
 
 @router.get(
+    "/random/daily",
+    response_model=RandomEntry,
+    summary="Return the deterministic 'entry of the day'.",
+    response_description=(
+        "One row from `entries`, chosen by a date-seeded RNG — stable for "
+        "the whole calendar day, then re-rolled at midnight."
+    ),
+)
+def random_daily_entry(conn: sqlite3.Connection = Depends(get_db)) -> RandomEntry:
+    """Draw the day's deterministic ``entries`` row.
+
+    Response shape mirrors ``/random`` exactly. The pick is seeded with
+    ``date.today().isoformat()`` and memoized in module state, so repeat
+    calls within a day are cache hits and every worker agrees on the row.
+    """
+    global _DAILY_PICK
+    today = date.today().isoformat()
+    pick = _DAILY_PICK
+    if pick is not None and pick[0] == today:
+        return pick[1]
+    with _DAILY_LOCK:
+        pick = _DAILY_PICK
+        if pick is not None and pick[0] == today:
+            return pick[1]
+        row = _fetch_daily_row(conn, today)
+        entry = _row_to_entry(row)
+        _DAILY_PICK = (today, entry)
+        return entry
+
+
+@router.get(
     "/random/notable",
     response_model=NotableEntry,
     summary="Return a random callsign that has a 'story' attached.",
@@ -451,7 +531,8 @@ def random_notable_entry(
 
 
 def _reset_caches_for_tests() -> None:
-    """Forget cached rowid bounds and notable pool. Tests only."""
-    global _ROWID_BOUNDS, _NOTABLE_POOL
+    """Forget cached rowid bounds, notable pool, and daily pick. Tests only."""
+    global _ROWID_BOUNDS, _NOTABLE_POOL, _DAILY_PICK
     _ROWID_BOUNDS = None
     _NOTABLE_POOL = None
+    _DAILY_PICK = None

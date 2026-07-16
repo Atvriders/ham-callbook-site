@@ -31,6 +31,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { colors, fontStacks, motifs } from "../lib/design";
+import RecentCallsigns from "../components/RecentCallsigns";
 
 // ---------------------------------------------------------------------------
 // Static dataset surfaced in the chrome. Headline figures from the spec.
@@ -467,7 +468,9 @@ function TeletypeCallsign({ callsign, delay }: { callsign: string; delay: number
         letterSpacing: "0.14em",
         color: colors.text,
         textDecoration: "none",
-        padding: "0 0.25rem",
+        // ~0.5rem vertical padding keeps each teletype chip a ≥40px-tall
+        // touch target (they measured 58×25 without it).
+        padding: "0.5rem 0.25rem",
         position: "relative",
       }}
       onMouseEnter={(e) => {
@@ -1247,6 +1250,16 @@ export default function HomePage() {
       <div style={{ animation: "fade-rise 700ms 1050ms both" }}>
         <LiveTicker />
       </div>
+
+      {/* ---------- RECENTLY VIEWED (self-hides when empty) ---------- */}
+      <RecentCallsigns
+        style={{
+          maxWidth: "82rem",
+          margin: "0 auto",
+          padding: "1.25rem 1.5rem 0",
+          animation: "fade-rise 700ms 1100ms both",
+        }}
+      />
 
       {/* ---------- STATS STRIP ---------- */}
       <section

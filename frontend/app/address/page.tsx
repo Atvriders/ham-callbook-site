@@ -90,6 +90,25 @@ async function fetchSearch(params: {
   }
 }
 
+/**
+ * Exact-cluster lookup for ``/address?cluster={key}`` permalinks (the
+ * households page and this page's own permalink links target that URL).
+ * The backend returns the cluster with its households attached; a 404
+ * (stale/unknown key) and a network failure both collapse to null.
+ */
+async function fetchCluster(key: string): Promise<AddressCluster | null> {
+  try {
+    const res = await fetch(
+      `${INTERNAL_BASE}/api/address/cluster/${encodeURIComponent(key)}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    return res.json() as Promise<AddressCluster>;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // CSS
 // ---------------------------------------------------------------------------
@@ -409,7 +428,7 @@ function ClusterCard({
         <span style={{ color: colors.accent }}>{cluster.callsign_count} licensees</span>
         {yearsRange && <span>{yearsRange}</span>}
         <a
-          href={`/address/${encodeURIComponent(cluster.cluster_key)}`}
+          href={`/address?cluster=${encodeURIComponent(cluster.cluster_key)}`}
           style={{
             color: colors.accent,
             textDecoration: "none",
@@ -497,10 +516,15 @@ export default async function AddressPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+  const clusterKey = firstParam(params["cluster"]);
   const q = firstParam(params["q"]);
   const state = firstParam(params["state"])?.toUpperCase().slice(0, 2) ?? undefined;
 
-  const results = q ? await fetchSearch({ q, state }) : null;
+  // ?cluster={key} — exact-cluster permalink (linked from /households and
+  // from each result card). Takes precedence over a q search.
+  const cluster = clusterKey ? await fetchCluster(clusterKey) : null;
+
+  const results = q && !clusterKey ? await fetchSearch({ q, state }) : null;
   const hasResults = results !== null && results.clusters.length > 0;
 
   return (
@@ -623,15 +647,55 @@ export default async function AddressPage({
       >
         <MorseDivider
           label={
-            q && results
-              ? results.total === 0
-                ? "no results"
-                : `${results.total} cluster${results.total !== 1 ? "s" : ""} — normalized: ${results.normalized_query}`
-              : "enter an address above"
+            clusterKey
+              ? cluster
+                ? "address cluster — permalink"
+                : "cluster not found"
+              : q && results
+                ? results.total === 0
+                  ? "no results"
+                  : `${results.total} cluster${results.total !== 1 ? "s" : ""} — normalized: ${results.normalized_query}`
+                : "enter an address above"
           }
         />
 
-        {!q ? (
+        {clusterKey ? (
+          cluster ? (
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
+            >
+              <ClusterCard cluster={cluster} index={0} />
+              <p
+                style={{
+                  fontFamily: fontStacks.mono,
+                  fontSize: "0.62rem",
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: colors.border,
+                  textAlign: "center",
+                  marginTop: "1rem",
+                }}
+              >
+                Single-cluster permalink · use the search above to widen
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "2rem",
+                border: `1px solid ${colors.danger}`,
+                borderRadius: "0.25rem",
+                color: colors.danger,
+                fontFamily: fontStacks.mono,
+                fontSize: "0.85rem",
+                letterSpacing: "0.1em",
+              }}
+            >
+              Address cluster not found (or the service is unreachable). Try
+              searching the street address above instead.
+            </div>
+          )
+        ) : !q ? (
           <EmptyPrompt />
         ) : results === null ? (
           <div

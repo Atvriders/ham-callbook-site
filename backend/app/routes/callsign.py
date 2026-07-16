@@ -6,22 +6,26 @@ GET /callsign/{cs}            -> CallsignDetail (latest record + roll-ups)
 GET /callsign/{cs}/history    -> CallsignHistoryItem[] (every edition)
 GET /callsign/{cs}/holders    -> HoldersHistoryResult (grouped by holder)
 GET /callsign/{cs}/nearby     -> NearbyCallsigns (12 suffix-adjacent calls)
+GET /callsign/{cs}/adjacent   -> AdjacentCallsigns (lexicographic prev/next)
+GET /callsign/{cs}/export.csv -> text/csv download of every entries row
 
-All four endpoints serve from the ``entries`` table (and the
-``callsign_history`` view) only — no writes, no FTS5 calls (those live in
-the search router). The biggest cost is the holders endpoint, which scans
-every row for the callsign; ``idx_entries_callsign`` keeps that O(rows-per-
-callsign) which is in practice 1-99 rows.
+These endpoints serve from the ``entries`` table only — no writes, no FTS5
+calls (those live in the search router). The biggest cost is the holders
+endpoint, which scans every row for the callsign; ``idx_entries_callsign``
+keeps that O(rows-per-callsign) which is in practice 1-99 rows.
 """
 
 from __future__ import annotations
 
+import csv
+import io
 import re
 import sqlite3
 from collections import Counter, OrderedDict
 from typing import Iterable
 
 from fastapi import APIRouter, Depends, HTTPException, Path as PathParam
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
@@ -46,6 +50,10 @@ class CallsignHistoryItem(BaseModel):
     city: str | None
     state: str | None
     license_class: str | None
+    # Provenance columns from `entries` (additive; the callsign_history VIEW
+    # lacks them, so the history route queries entries directly).
+    source: str | None = None
+    flag: str | None = None
     # State on this edition looks like an OCR misread: the rest of the
     # callsign's history (the editions immediately before AND after) agrees on
     # a *different* state. Set only for sandwiched one-off outliers, so genuine
@@ -79,6 +87,10 @@ class CallsignLatest(BaseModel):
     state: str | None
     zip: str | None
     license_class: str | None
+    # Provenance columns from `entries` (additive; default None keeps the
+    # synthesized FCC-ULS-only detail path working unchanged).
+    source: str | None = None
+    flag: str | None = None
 
 
 class CallsignDetail(BaseModel):
@@ -135,6 +147,15 @@ class NearbyCallsigns(BaseModel):
     prefix: str
     suffix: str
     nearby: list[NearbyCallsign]
+
+
+class AdjacentCallsigns(BaseModel):
+    prev: str | None = Field(
+        None, description="Lexicographically previous distinct callsign, or null."
+    )
+    next: str | None = Field(
+        None, description="Lexicographically next distinct callsign, or null."
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -316,7 +337,7 @@ def get_callsign(
     cur = db.execute(
         """
         SELECT year, edition, callsign, license_class, name,
-               address, city, state, zip
+               address, city, state, zip, flag, source
         FROM   entries
         WHERE  callsign = ?
         ORDER  BY year DESC, edition DESC
@@ -431,6 +452,8 @@ def get_callsign(
             state=clean_ocr_state(latest["state"]),
             zip=latest["zip"],
             license_class=latest["license_class"],
+            source=latest["source"],
+            flag=latest["flag"],
         ),
         first_seen_year=first_year,
         last_seen_year=last_year,
@@ -447,10 +470,14 @@ def get_history(
     db: sqlite3.Connection = Depends(get_db),
 ) -> list[CallsignHistoryItem]:
     callsign = normalize_callsign(cs)
+    # Query `entries` directly rather than the callsign_history VIEW: the view
+    # lacks the `source` / `flag` provenance columns. Same rows (the view is
+    # just `entries WHERE callsign IS NOT NULL`), same ordering — additive only.
     cur = db.execute(
         """
-        SELECT callsign, year, edition, name, city, state, license_class
-        FROM   callsign_history
+        SELECT callsign, year, edition, name, city, state, license_class,
+               flag, source
+        FROM   entries
         WHERE  callsign = ?
         ORDER  BY year ASC, edition ASC
         """,
@@ -474,6 +501,8 @@ def get_history(
             city=clean_ocr_city(r["city"]),
             state=clean_ocr_state(r["state"]),
             license_class=r["license_class"],
+            source=r["source"],
+            flag=r["flag"],
         )
         for r in rows
     ]
@@ -712,6 +741,98 @@ def get_nearby(
         prefix=prefix,
         suffix=suffix,
         nearby=hits[:12],
+    )
+
+
+@router.get("/{cs}/adjacent", response_model=AdjacentCallsigns)
+def get_adjacent(
+    cs: str = PathParam(..., description="Callsign, case-insensitive."),
+    db: sqlite3.Connection = Depends(get_db),
+) -> AdjacentCallsigns:
+    """Lexicographically previous / next distinct callsigns in the corpus.
+
+    Both probes ride ``idx_entries_callsign`` (a single B-tree seek each).
+    A missing neighbour — the first or last callsign in the archive — comes
+    back as ``null``; the queried callsign itself need not exist.
+    """
+    callsign = normalize_callsign(cs)
+    prev_row = db.execute(
+        """
+        SELECT DISTINCT callsign
+        FROM   entries
+        WHERE  callsign < ?
+        ORDER  BY callsign DESC
+        LIMIT  1
+        """,
+        (callsign,),
+    ).fetchone()
+    next_row = db.execute(
+        """
+        SELECT DISTINCT callsign
+        FROM   entries
+        WHERE  callsign > ?
+        ORDER  BY callsign ASC
+        LIMIT  1
+        """,
+        (callsign,),
+    ).fetchone()
+    return AdjacentCallsigns(
+        prev=prev_row["callsign"] if prev_row is not None else None,
+        next=next_row["callsign"] if next_row is not None else None,
+    )
+
+
+# All 12 columns of the `entries` table, in schema order — the CSV export
+# is a faithful dump including provenance (raw_ocr / flag / source).
+_EXPORT_COLUMNS: tuple[str, ...] = (
+    "year", "edition", "callsign", "license_class", "name", "address",
+    "city", "state", "zip", "raw_ocr", "flag", "source",
+)
+
+
+@router.get(
+    "/{cs}/export.csv",
+    response_class=PlainTextResponse,
+    summary="Download every callbook row for a callsign as CSV.",
+)
+def export_csv(
+    cs: str = PathParam(..., description="Callsign, case-insensitive."),
+    db: sqlite3.Connection = Depends(get_db),
+) -> PlainTextResponse:
+    """CSV attachment of all ``entries`` columns for a callsign, by year.
+
+    Mirrors the data-portal download contract (``text/csv`` +
+    ``Content-Disposition: attachment``) but is built per-callsign on the
+    fly — the row count per callsign is 1-99, so an in-memory build is fine.
+    """
+    callsign = normalize_callsign(cs)
+    cur = db.execute(
+        f"""
+        SELECT {", ".join(_EXPORT_COLUMNS)}
+        FROM   entries
+        WHERE  callsign = ?
+        ORDER  BY year ASC, edition ASC
+        """,
+        (callsign,),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"callsign not found: {callsign}")
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(_EXPORT_COLUMNS)
+    for r in rows:
+        writer.writerow([r[col] for col in _EXPORT_COLUMNS])
+
+    # Portable calls contain "/" which is illegal in a filename — swap for "-".
+    safe_cs = callsign.replace("/", "-")
+    return PlainTextResponse(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="callsign_{safe_cs}.csv"',
+        },
     )
 
 
@@ -1123,6 +1244,7 @@ __all__ = [
     "HolderGroup",
     "NearbyCallsigns",
     "NearbyCallsign",
+    "AdjacentCallsigns",
     "DistrictCompanion",
     "UlsLicenseRecord",
     "UlsHistoryResponse",

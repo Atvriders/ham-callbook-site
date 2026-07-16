@@ -14,6 +14,7 @@
 import Link from "next/link";
 
 import { colors, fontStacks, motifs } from "../lib/design";
+import { RetrySearchLink } from "../components/SearchPager";
 
 // ---------------------------------------------------------------------------
 // Background motifs — replicated locally so this file is self-contained.
@@ -360,8 +361,9 @@ export default function NotFound() {
           >
             Tune back to base
           </Link>
-          <Link
-            href="/search"
+          {/* Client component — carries the 404'd URL's last path segment
+              into /search?q= so the visitor retries the term they wanted. */}
+          <RetrySearchLink
             style={{
               padding: "0.85rem 1.6rem",
               background: "transparent",
@@ -377,7 +379,7 @@ export default function NotFound() {
             }}
           >
             Retry search
-          </Link>
+          </RetrySearchLink>
         </div>
 
         {/* Bottom eyebrow */}

@@ -59,6 +59,7 @@ from app.routes import callsign_club as callsign_club_router
 from app.routes import records as records_router
 from app.routes import diff as diff_router
 from app.routes import qsl as qsl_router
+from app.routes import qsl_manager as qsl_manager_router
 from app.routes import data_portal as data_portal_router
 from app.routes import defunct_clubs as defunct_clubs_router
 from app.integrations import defunct_clubs as _defunct_clubs_integration
@@ -270,6 +271,7 @@ app.include_router(callsign_club_router.router)
 app.include_router(records_router.router, tags=["records"])
 app.include_router(diff_router.router, tags=["diff"])
 app.include_router(qsl_router.router, tags=["qsl"])
+app.include_router(qsl_manager_router.router, tags=["qsl"])
 app.include_router(data_portal_router.router, tags=["data-portal"])
 # Defunct Clubs — must be registered AFTER clubs_router so /api/clubs/defunct
 # does not conflict with /api/clubs/{slug} (FastAPI routes in declaration order).

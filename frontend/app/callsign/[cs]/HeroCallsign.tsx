@@ -110,9 +110,12 @@ export default function HeroCallsign({ callsign }: HeroCallsignProps) {
         ))}
       </h1>
 
-      {/* Floor reflection — same text, flipped, faded via mask. */}
+      {/* Floor reflection — same text, flipped, faded via mask. Hidden in
+          print (the page's @media print block) — a mirrored ghost of the
+          callsign reads as a misprint on paper. */}
       <motion.div
         aria-hidden
+        className="cs-print-hide"
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.32 }}
         transition={{ delay: 0.4 + chars.length * STAGGER_S, duration: 0.9 }}

@@ -21,7 +21,8 @@ import { colors, fontStacks, motifs } from "../../lib/design";
  * The year-detail page can present its own empty-state if needed.
  */
 const YEAR_START = 1909;
-const YEAR_END = 1999;
+/** 2003 — the final (CD-ROM) edition in the corpus, after the 1997 print run. */
+const YEAR_END = 2003;
 
 /**
  * US states + DC. We keep DC, drop territories — the entries table is
@@ -225,6 +226,7 @@ function VerticalMorse() {
   return (
     <div
       aria-hidden
+      className="browse-vmorse"
       style={{
         writingMode: "vertical-rl",
         textOrientation: "mixed",
@@ -281,6 +283,40 @@ function ColumnHeading({
   );
 }
 
+/**
+ * Scoped responsive CSS. The three-axis grid is inline-styled (5 tracks:
+ * col · morse · col · morse · col) and never stacked on its own — on
+ * phones the "By era" column ended up clipped and unreachable because
+ * the page's overflow-x is clipped. Below 48rem we restack to a single
+ * column (!important beats the inline styles), hide the vertical morse
+ * dividers, drop the inter-column padding, and re-flow each decade's
+ * year links 5-across with taller (~40px) tap targets.
+ */
+const BROWSE_RESPONSIVE_CSS = `
+@media (max-width: 48rem) {
+  .browse-axes {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: 3rem;
+  }
+  .browse-axes .browse-vmorse {
+    display: none !important;
+  }
+  .browse-axes .browse-col {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .browse-years {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 0.4rem !important;
+  }
+  .browse-years a,
+  .browse-years span {
+    padding: 0.55rem 0 !important;
+    font-size: 0.85rem !important;
+  }
+}
+`;
+
 export default function BrowsePage() {
   // Pre-compute year decades for grouping. Each decade renders as a
   // sub-heading with a row of year links underneath.
@@ -304,6 +340,8 @@ export default function BrowsePage() {
         zIndex: 0,
       }}
     >
+      {/* Responsive stacking rules — server-component-safe scoped CSS. */}
+      <style dangerouslySetInnerHTML={{ __html: BROWSE_RESPONSIVE_CSS }} />
       <Grain />
 
       {/* --- HERO -------------------------------------------------------- */}
@@ -385,6 +423,7 @@ export default function BrowsePage() {
         }}
       >
         <div
+          className="browse-axes"
           style={{
             display: "grid",
             gridTemplateColumns:
@@ -394,7 +433,7 @@ export default function BrowsePage() {
           }}
         >
           {/* --- COLUMN 1: BY YEAR (calendar grid, decade-as-spine) ------ */}
-          <div style={{ padding: "0 1.5rem 0 0", minWidth: 0 }}>
+          <div className="browse-col" style={{ padding: "0 1.5rem 0 0", minWidth: 0 }}>
             <ColumnHeading kicker="axis · 01" title="By year" />
             <p
               style={{
@@ -443,6 +482,7 @@ export default function BrowsePage() {
                     {String(decade).slice(-2)}'
                   </div>
                   <div
+                    className="browse-years"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(10, minmax(0, 1fr))",
@@ -503,7 +543,7 @@ export default function BrowsePage() {
           <VerticalMorse />
 
           {/* --- COLUMN 2: BY STATE (codes as stamps) ---------------------- */}
-          <div style={{ padding: "0 1.5rem", minWidth: 0 }}>
+          <div className="browse-col" style={{ padding: "0 1.5rem", minWidth: 0 }}>
             <ColumnHeading kicker="axis · 02" title="By state" />
             <p
               style={{
@@ -580,7 +620,7 @@ export default function BrowsePage() {
           <VerticalMorse />
 
           {/* --- COLUMN 3: BY ERA (vertical timeline) --------------------- */}
-          <div style={{ padding: "0 0 0 1.5rem", minWidth: 0 }}>
+          <div className="browse-col" style={{ padding: "0 0 0 1.5rem", minWidth: 0 }}>
             <ColumnHeading kicker="axis · 03" title="By era" />
             <p
               style={{
