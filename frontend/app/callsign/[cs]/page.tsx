@@ -58,6 +58,7 @@ import TuningIndicator from "./TuningIndicator";
 import CiteThisRecord from "../../../components/CiteThisRecord";
 import PrintedLineageCard, { type PrintedLineageResponse } from "../../../components/PrintedLineageCard";
 import SourceViewer from "../../../components/SourceViewer";
+import StatusChip from "../../../components/StatusChip";
 import { SuggestCorrection } from "../../../components/SuggestCorrection";
 
 // ---------------------------------------------------------------------------
@@ -159,6 +160,67 @@ interface NearbyCallsigns {
   prefix: string;
   suffix: string;
   nearby: NearbyCallsign[];
+}
+
+// ---------------------------------------------------------------------------
+// Geographic nearby index (/api/nearby) + current-status (/api/status/{cs})
+// response shapes — mirror the FastAPI contracts exactly.
+// ---------------------------------------------------------------------------
+
+/** One hit from the geographic /api/nearby index (ZIP-centroid distances). */
+interface GeoNearbyResult {
+  callsign: string;
+  name: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string;
+  distance_mi: number;
+  last_seen_year: number;
+  status: "A" | "E" | "C" | "T" | null;
+  status_label: string | null;
+}
+
+/**
+ * /api/nearby envelope. While the lazy geo index is still building the
+ * endpoint returns {index_ready:false, building:true, eta_s} instead of
+ * results — every field except the build flags is therefore optional.
+ */
+interface GeoNearbyResponse {
+  query?: {
+    raw: string;
+    zip: string | null;
+    city: string | null;
+    state: string | null;
+    lat: number;
+    lon: number;
+    matched_by: "zip" | "city-state" | "city";
+  };
+  index_ready?: boolean;
+  building?: boolean;
+  eta_s?: number;
+  radius_mi?: number;
+  dense?: boolean;
+  expanded?: boolean;
+  total_in_radius?: number;
+  results?: GeoNearbyResult[];
+}
+
+/** /api/status/{cs} — live FCC verdict + archive footprint for one call. */
+interface CurrentStatusResponse {
+  callsign: string;
+  uls: {
+    found: boolean;
+    status: string | null;
+    status_label: string | null;
+    grant_date: string | null;
+    name: string | null;
+  };
+  archive: {
+    first_year: number | null;
+    last_year: number | null;
+    appearances: number;
+  };
+  verdict: "active" | "expired" | "cancelled" | "historical-only";
 }
 
 interface UnifiedActivitySpot {
@@ -2089,6 +2151,266 @@ function NearbyList({ nearby }: { nearby: NearbyCallsigns }) {
   );
 }
 
+/**
+ * (f) CurrentStatusBanner — one-line live-license verdict strip rendered
+ * directly under the hero status strip. Streams in under <Suspense> (the
+ * same pattern the page uses for its other slow fetch, ActivityPanel) so
+ * the /api/status round-trip never blocks the historical render. Hidden
+ * entirely (fallback null) when the endpoint 404s or errors.
+ */
+async function CurrentStatusBanner({ callsign }: { callsign: string }) {
+  const st = await apiGet<CurrentStatusResponse>(
+    `/api/status/${encodeURIComponent(callsign)}`,
+  );
+  if (!st) return null;
+
+  const found = Boolean(st.uls?.found);
+  const ulsName = cleanName(st.uls?.name);
+
+  return (
+    <div
+      style={{
+        border: found
+          ? "1px solid rgba(255,163,11,0.4)"
+          : `1px solid ${colors.border}`,
+        background: found ? "rgba(255,163,11,0.06)" : "rgba(19,26,45,0.55)",
+        padding: "0.5rem 0.85rem",
+        borderRadius: 4,
+        fontFamily: fontStacks.mono,
+        fontSize: "0.78rem",
+        color: found ? colors.accent : colors.text_dim,
+        display: "flex",
+        alignItems: "center",
+        gap: "0.6rem",
+        flexWrap: "wrap",
+        alignSelf: "flex-start",
+      }}
+    >
+      <span
+        style={{
+          opacity: 0.7,
+          letterSpacing: "0.3em",
+          textTransform: "uppercase",
+        }}
+      >
+        Current status
+      </span>
+      <span aria-hidden style={{ opacity: 0.4 }}>::</span>
+      <StatusChip
+        status={found ? st.uls.status : null}
+        label={found ? st.uls.status_label : null}
+        size="sm"
+      />
+      {found ? (
+        <>
+          {st.uls.grant_date ? (
+            <span style={{ color: colors.text_dim }}>
+              Granted{" "}
+              <span style={{ color: colors.text }}>{st.uls.grant_date}</span>
+            </span>
+          ) : null}
+          {ulsName ? (
+            <span style={{ color: colors.text_dim }}>
+              in FCC database as{" "}
+              <span style={{ color: colors.text }}>{ulsName}</span>
+            </span>
+          ) : null}
+        </>
+      ) : (
+        <span style={{ color: colors.text_dim }}>
+          Historical archive only
+          {st.archive?.last_year
+            ? ` — last printed ${st.archive.last_year}`
+            : ""}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * (g) OnTheAirNearby — geographically nearby callsigns from the ZIP-centroid
+ * index (/api/nearby), as opposed to the suffix-adjacent "Nearby" grid below.
+ * Streams under <Suspense> like ActivityPanel; brings its own MorseDivider +
+ * SectionHeader so the whole section (frame included) hides as one unit when
+ * there's no usable location, the index is still building after two polls,
+ * or no OTHER callsigns are found.
+ */
+async function OnTheAirNearby({
+  callsign,
+  detail,
+}: {
+  callsign: string;
+  detail: CallsignDetail;
+}) {
+  const l = detail.latest;
+
+  // Location query: prefer the latest record's ZIP; degrade to "City, ST".
+  const zip = cleanOCRZip(l.zip);
+  const city = cleanOCRCity(l.city, l.state);
+  const state = cleanOCRState(l.city, l.state);
+  const q = zip || (city && state ? `${city}, ${state}` : "");
+  if (!q) return null;
+
+  const url = `/api/nearby?q=${encodeURIComponent(q)}&limit=12`;
+  let data = await apiGet<GeoNearbyResponse>(url);
+  // Lazy index still building — poll twice (3s apart, mirroring the /nearby
+  // page's cadence), then hide the section silently.
+  for (let attempt = 0; attempt < 2 && data?.building === true; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    data = await apiGet<GeoNearbyResponse>(url);
+  }
+  if (!data || data.building === true || !Array.isArray(data.results)) {
+    return null;
+  }
+
+  // Skip this page's own callsign; show the 8 nearest others.
+  const self = callsign.toUpperCase();
+  const rows = data.results
+    .filter((r) => (r.callsign ?? "").toUpperCase() !== self)
+    .slice(0, 8);
+  if (rows.length === 0) return null;
+
+  const tally = data.dense
+    ? `${data.total_in_radius ?? rows.length} within 10 mi`
+    : data.radius_mi != null
+      ? `within ${data.radius_mi} mi`
+      : undefined;
+
+  return (
+    <>
+      <div style={PAGE_CONTAINER}>
+        <MorseDivider label="on the air nearby" />
+      </div>
+      <section style={PAGE_CONTAINER}>
+        <Reveal delay={0.05}>
+          <SectionHeader
+            kicker={`geo index · ${q}`}
+            title="On the air nearby"
+            tally={tally}
+          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(17rem, 1fr))",
+              gap: "0.4rem",
+            }}
+          >
+            {rows.map((r) => (
+              <a
+                key={r.callsign}
+                href={`/callsign/${encodeURIComponent(r.callsign)}`}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.35rem",
+                  padding: "0.6rem 0.75rem",
+                  border: `1px solid ${colors.border}`,
+                  background: colors.surface,
+                  color: colors.text,
+                  textDecoration: "none",
+                  fontFamily: fontStacks.mono,
+                  borderRadius: "0.125rem",
+                  transition: "border-color 200ms ease, color 200ms ease",
+                }}
+              >
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.95rem",
+                      color: colors.accent,
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {r.callsign}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      color: colors.text_dim,
+                      maxWidth: "10rem",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={cleanOCRName(r.name) || ""}
+                  >
+                    {cleanOCRName(r.name) || "—"}
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      flexShrink: 0,
+                      padding: "1px 6px",
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: 2,
+                      fontSize: "0.7rem",
+                      color: colors.glow,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {r.distance_mi.toFixed(1)} mi
+                  </span>
+                </span>
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontSize: "0.7rem",
+                    color: colors.text_dim,
+                  }}
+                >
+                  <StatusChip status={r.status} label={r.status_label} size="sm" />
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {joinNonEmpty([cleanOCRCity(r.city, r.state), cleanOCRState(r.city, r.state) || r.state]) || r.zip}
+                  </span>
+                  <span style={{ marginLeft: "auto", whiteSpace: "nowrap" }}>
+                    last seen {r.last_seen_year}
+                  </span>
+                </span>
+              </a>
+            ))}
+          </div>
+          <div style={{ marginTop: "1rem" }}>
+            <a
+              href={`/nearby?q=${encodeURIComponent(q)}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5em",
+                fontFamily: fontStacks.mono,
+                fontSize: "0.78rem",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: colors.accent,
+                textDecoration: "none",
+                borderBottom: `1px solid ${colors.accent_2}`,
+                paddingBottom: "0.15rem",
+              }}
+            >
+              See all nearby
+              <span aria-hidden style={{ color: colors.accent_2 }}>→</span>
+            </a>
+          </div>
+        </Reveal>
+      </section>
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Hero-level current-holder components.
 // ---------------------------------------------------------------------------
@@ -3456,6 +3778,13 @@ export default async function CallsignPage({ params }: PageProps) {
             <HeroStatusStrip holder={currentHolder} />
           </Reveal>
 
+          {/* Live-license verdict banner (/api/status). Streams in under
+              Suspense so the round-trip never blocks the hero; hidden when
+              the endpoint is unavailable. */}
+          <Suspense fallback={null}>
+            <CurrentStatusBanner callsign={callsign} />
+          </Suspense>
+
           <Reveal delay={0.55}>
             <div
               style={{
@@ -3643,6 +3972,13 @@ export default async function CallsignPage({ params }: PageProps) {
           </Suspense>
         </Reveal>
       </section>
+
+      {/* --- ON THE AIR NEARBY (geo index, streamed) --------------------- */}
+      {/* Brings its own divider + header so the whole frame hides as one
+          unit when there's no usable location or the index isn't ready. */}
+      <Suspense fallback={null}>
+        <OnTheAirNearby callsign={callsign} detail={detail} />
+      </Suspense>
 
       <div style={PAGE_CONTAINER}>
         <MorseDivider label="nearby" />

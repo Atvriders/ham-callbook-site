@@ -52,6 +52,8 @@ from app.routes import (
     state,
     stats,
     year,
+    nearby,
+    status as status_route,
 )
 from app.routes import clubs as clubs_router
 from app.routes import club as club_router
@@ -258,6 +260,8 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 # Order matters only for OpenAPI grouping; FastAPI matches by path.
 app.include_router(health.router, tags=["meta"])
 app.include_router(search.router, tags=["search"])
+app.include_router(nearby.router, tags=["nearby"])
+app.include_router(status_route.router, tags=["status"])
 app.include_router(callsign.router, tags=["callsign"])
 app.include_router(year.router, tags=["browse"])
 app.include_router(state.router, tags=["browse"])

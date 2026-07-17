@@ -676,7 +676,7 @@ function StatsStrip() {
 // unique inline-SVG motif: stacked year bars / US silhouette / swirl.
 // ---------------------------------------------------------------------------
 
-type ExploreMotif = "year-bars" | "us-silhouette" | "swirl";
+type ExploreMotif = "year-bars" | "us-silhouette" | "range-rings" | "swirl";
 
 type ExploreTile = {
   href: string;
@@ -705,6 +705,15 @@ const EXPLORE_TILES: ExploreTile[] = [
       "Every US state, territory, and possession. Maps weighted by activity.",
     height: 15,
     motif: "us-silhouette",
+  },
+  {
+    href: "/nearby",
+    eyebrow: "Vol III",
+    title: "Hams Near Me",
+    caption:
+      "Type a ZIP or hometown and sweep the surrounding miles for every callsign on record.",
+    height: 17,
+    motif: "range-rings",
   },
   {
     href: "/random",
@@ -781,6 +790,49 @@ function UsSilhouetteMotif() {
   );
 }
 
+function RangeRingsMotif() {
+  // Concentric DF range rings + scattered station dots — the /nearby motif.
+  const cx = 110;
+  const cy = 52;
+  const rings = [16, 32, 48];
+  const stations: [number, number][] = [
+    [98, 44], [126, 60], [88, 66], [140, 38], [70, 40],
+    [152, 66], [118, 24], [58, 62], [166, 48],
+  ];
+  return (
+    <svg viewBox="0 0 220 104" width="100%" height={104} aria-hidden>
+      {rings.map((r, i) => (
+        <circle
+          key={r}
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={i === 0 ? colors.accent : colors.accent_2}
+          strokeWidth={1}
+          strokeDasharray={i === rings.length - 1 ? "3 4" : undefined}
+          opacity={0.85 - i * 0.22}
+        />
+      ))}
+      {/* crosshair ticks */}
+      <line x1={cx - 54} y1={cy} x2={cx + 54} y2={cy} stroke={colors.border} strokeWidth={1} />
+      <line x1={cx} y1={cy - 50} x2={cx} y2={cy + 50} stroke={colors.border} strokeWidth={1} />
+      {/* center — "you are here" */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={2.6}
+        fill={colors.glow}
+        style={{ filter: `drop-shadow(0 0 4px ${colors.accent})` }}
+      />
+      {/* surrounding stations */}
+      {stations.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={1.6} fill={colors.accent} opacity={0.9} />
+      ))}
+    </svg>
+  );
+}
+
 function SwirlMotif() {
   // Logarithmic-spiral path — 4 turns, sampled. Pure SVG, no library.
   const cx = 90;
@@ -822,6 +874,7 @@ function SwirlMotif() {
 function MotifFor({ motif }: { motif: ExploreMotif }) {
   if (motif === "year-bars") return <YearBarsMotif />;
   if (motif === "us-silhouette") return <UsSilhouetteMotif />;
+  if (motif === "range-rings") return <RangeRingsMotif />;
   return <SwirlMotif />;
 }
 

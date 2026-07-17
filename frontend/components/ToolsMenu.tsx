@@ -19,6 +19,7 @@ import { Wrench, ChevronDown } from "lucide-react";
  */
 const toolGroups: { href: string; label: string }[][] = [
   [
+    { href: "/nearby", label: "Hams near me" },
     { href: "/adif", label: "ADIF Time Machine" },
     { href: "/cohorts", label: "Cohort Observatory" },
     { href: "/name-voyager", label: "Name Voyager" },

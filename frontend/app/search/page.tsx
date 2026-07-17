@@ -40,6 +40,8 @@
  * fills cols 1-8, facets sidebar (year + state + edition) cols 9-12.
  */
 
+import { Fragment } from "react";
+
 import { colors, fontStacks, motifs } from "../../lib/design";
 import type {
   SearchFacets,
@@ -49,6 +51,8 @@ import type {
 import { cleanOCRName, cleanOCRCity, cleanOCRState } from "../../lib/ocrClean";
 import SearchPager, { SearchSortSelect } from "@/components/SearchPager";
 import RecentCallsigns from "@/components/RecentCallsigns";
+import StatusChip from "@/components/StatusChip";
+import InlineHistory, { HistoryMasterToggle } from "@/components/InlineHistory";
 
 // ---------------------------------------------------------------------------
 // Tunables.
@@ -122,7 +126,7 @@ function normSort(raw: string | undefined): SortValue {
  * the full result set itself this gives a within-page ordering, and
  * once it does this stable re-sort becomes a harmless no-op.
  */
-function sortHits(hits: SearchHit[], sort: SortValue): SearchHit[] {
+function sortHits<T extends SearchHit>(hits: T[], sort: SortValue): T[] {
   if (sort === "score") return hits;
   const sorted = [...hits];
   if (sort === "year") {
@@ -199,6 +203,104 @@ async function fetchSearch(params: {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// FCC license status per hit.
+//
+// The backend is growing two optional fields on every search hit — `status`
+// ("A"|"E"|"C"|"T"|null) and `status_label` — sourced from the in-memory ULS
+// snapshot. We code defensively: when hits arrive WITHOUT those fields (older
+// backend), we batch the visible page's callsigns through /api/status/bulk
+// (≤60 calls per request) server-side, so the client still renders chips with
+// zero extra round-trips. If the bulk endpoint is also unavailable, status is
+// simply "unknown" and the table shows a dim placeholder instead of a chip.
+// ---------------------------------------------------------------------------
+
+/** Search hit + the (optional, backend-in-flight) ULS status fields. */
+type SearchHitWithStatus = SearchHit & {
+  status?: string | null;
+  status_label?: string | null;
+};
+
+/** Per-callsign entry in the /api/status/bulk response map. */
+interface BulkStatusEntry {
+  status: string | null;
+  status_label: string | null;
+  verdict?: string;
+}
+
+type BulkStatusMap = Record<string, BulkStatusEntry>;
+
+/** Max callsigns per /api/status/bulk request (backend contract). */
+const BULK_STATUS_CHUNK = 60;
+
+/**
+ * Fetch ULS statuses for a page of callsigns via /api/status/bulk, chunked
+ * to the endpoint's 60-call limit (a 100-row page needs two calls). Returns
+ * an UPPERCASE-keyed map, or null when the endpoint is unreachable — the
+ * caller then renders "status unknown" rather than a misleading gray chip.
+ */
+async function fetchBulkStatuses(
+  callsigns: string[],
+): Promise<BulkStatusMap | null> {
+  const unique = [...new Set(callsigns.map((c) => c.toUpperCase()))];
+  if (unique.length === 0) return {};
+  const out: BulkStatusMap = {};
+  try {
+    for (let i = 0; i < unique.length; i += BULK_STATUS_CHUNK) {
+      const chunk = unique.slice(i, i + BULK_STATUS_CHUNK);
+      const res = await fetch(
+        `${API_BASE}/api/status/bulk?calls=${encodeURIComponent(chunk.join(","))}`,
+        { cache: "no-store", headers: { Accept: "application/json" } },
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        statuses?: Record<
+          string,
+          { status?: string | null; status_label?: string | null; verdict?: string }
+        >;
+      };
+      const statuses = data?.statuses ?? {};
+      for (const cs of chunk) {
+        const s = statuses[cs];
+        out[cs] = {
+          status: s?.status ?? null,
+          status_label: s?.status_label ?? null,
+          verdict: s?.verdict,
+        };
+      }
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolved per-hit status: `known=false` means we could not determine it. */
+interface ResolvedStatus {
+  known: boolean;
+  status: string | null;
+  label: string | null;
+}
+
+function resolveHitStatus(
+  hit: SearchHitWithStatus,
+  bulk: BulkStatusMap | null,
+): ResolvedStatus {
+  // Field present on the hit (even when null) = the backend answered.
+  if ("status" in hit && hit.status !== undefined) {
+    return {
+      known: true,
+      status: hit.status ?? null,
+      label: hit.status_label ?? null,
+    };
+  }
+  const s = bulk?.[hit.callsign.toUpperCase()];
+  if (s !== undefined) {
+    return { known: true, status: s.status, label: s.status_label };
+  }
+  return { known: false, status: null, label: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -1349,13 +1451,19 @@ function hitHref(hit: SearchHit): string {
   return `/callsign/${cs}#${encodeURIComponent(`${hit.year}-${hit.edition}`)}`;
 }
 
-function ResultsTable({ hits }: { hits: SearchHit[] }) {
+function ResultsTable({
+  hits,
+  statuses,
+}: {
+  hits: SearchHitWithStatus[];
+  statuses: BulkStatusMap | null;
+}) {
   // Column order: callsign · name · snippet (match preview) · city ·
-  // year · edition · state. State is the right-most column, intentionally
-  // dim, so a glance left-to-right reads identity → context → location.
+  // year · edition · state · status · history-toggle. State stays dim so a
+  // glance left-to-right reads identity → context → location → liveness.
   const columns: Array<{
     label: string;
-    align: "left" | "right";
+    align: "left" | "right" | "center";
   }> = [
     { label: "Callsign", align: "left" },
     { label: "Name", align: "left" },
@@ -1364,17 +1472,25 @@ function ResultsTable({ hits }: { hits: SearchHit[] }) {
     { label: "Yr", align: "right" },
     { label: "Edition", align: "right" },
     { label: "ST", align: "right" },
+    { label: "Status", align: "left" },
+    { label: "Hist", align: "center" },
   ];
 
   return (
+    // Horizontal-scroll containment (matches components/DataTable.tsx): the
+    // 9-column grid's track minimums (~25rem) exceed narrow phone viewports,
+    // so the wrapper scrolls sideways instead of overflowing the page body.
+    // When the content fits (tablet/desktop), the wrapper is inert.
+    <div style={{ overflowX: "auto" }}>
     <div
       role="table"
       aria-label="Search results"
       style={{
         display: "grid",
-        // callsign | name | match | city | year | edition | state
+        // callsign | name | match | city | year | edition | state | status | history
         gridTemplateColumns:
-          "minmax(6rem, auto) minmax(0, 1.3fr) minmax(0, 2fr) minmax(0, 1fr) 3rem minmax(5rem, auto) 2.5rem",
+          "minmax(6rem, auto) minmax(0, 1.3fr) minmax(0, 2fr) minmax(0, 1fr) 3rem minmax(5rem, auto) 2.5rem minmax(5.5rem, auto) 2.6rem",
+        minWidth: "44rem",
         borderTop: `1px solid ${colors.border}`,
       }}
     >
@@ -1402,8 +1518,8 @@ function ResultsTable({ hits }: { hits: SearchHit[] }) {
       </div>
 
       {hits.map((hit, idx) => (
+        <Fragment key={`${hit.callsign}-${hit.year}-${hit.edition}-${idx}`}>
         <a
-          key={`${hit.callsign}-${hit.year}-${hit.edition}-${idx}`}
           role="row"
           href={hitHref(hit)}
           className="sv-row sv-rise"
@@ -1543,8 +1659,44 @@ function ResultsTable({ hits }: { hits: SearchHit[] }) {
           >
             {cleanOCRState(hit.city, hit.state) || "—"}
           </div>
+          {/* FCC license status — from the hit itself when the backend
+              provides it, else the server-side /api/status/bulk fallback. */}
+          <div
+            role="cell"
+            className="sv-row-cell"
+            style={{
+              padding: "0.55rem 0.5rem",
+              display: "flex",
+              alignItems: "center",
+              borderBottom: `1px solid ${colors.border}`,
+            }}
+          >
+            {(() => {
+              const st = resolveHitStatus(hit, statuses);
+              return st.known ? (
+                <StatusChip status={st.status} label={st.label} size="sm" />
+              ) : (
+                <span
+                  title="License status unavailable"
+                  style={{
+                    fontFamily: fontStacks.mono,
+                    fontSize: "0.7rem",
+                    color: colors.border,
+                  }}
+                >
+                  —
+                </span>
+              );
+            })()}
+          </div>
         </a>
+        {/* Per-hit history chevron + lazy inline timeline. Rendered OUTSIDE
+            the row anchor so toggling never navigates; the client island
+            emits its own grid cells (chevron + optional full-width panel). */}
+        <InlineHistory callsign={hit.callsign} />
+        </Fragment>
       ))}
+    </div>
     </div>
   );
 }
@@ -1577,10 +1729,22 @@ export default async function SearchPage({
     ? await fetchSearch({ q, year, state, edition, sort, limit: per, offset })
     : null;
 
-  const hits: SearchHit[] = sortHits(results?.hits ?? [], sort);
+  const hits: SearchHitWithStatus[] = sortHits(
+    (results?.hits ?? []) as SearchHitWithStatus[],
+    sort,
+  );
   const total = results?.total ?? 0;
   const totalPages = Math.max(1, Math.min(MAX_PAGE, Math.ceil(total / per)));
   const facets: SearchFacets = results?.facets ?? { years: [], states: [] };
+
+  // Defensive status fallback: only when at least one hit on this page is
+  // missing the (backend-in-flight) `status` field do we batch the page's
+  // callsigns through /api/status/bulk. When every hit already carries the
+  // field this is zero extra work.
+  const needBulkStatuses = hits.some((h) => !("status" in h));
+  const statuses: BulkStatusMap | null = needBulkStatuses
+    ? await fetchBulkStatuses(hits.map((h) => h.callsign))
+    : null;
 
   return (
     <main
@@ -1861,13 +2025,16 @@ export default async function SearchPage({
                     {(offset + hits.length).toLocaleString()} of{" "}
                     {total.toLocaleString()}
                   </span>
+                  {/* Page-level master toggle: expands/collapses every
+                      visible row's inline edition history at once. */}
+                  <HistoryMasterToggle />
                   <SearchSortSelect
                     params={{ q, year, state, edition, per }}
                     sort={sort}
                   />
                 </div>
               </div>
-              <ResultsTable hits={hits} />
+              <ResultsTable hits={hits} statuses={statuses} />
               <SearchPager
                 params={{ q, year, state, edition, sort, per }}
                 page={page}

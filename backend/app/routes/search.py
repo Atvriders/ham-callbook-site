@@ -89,6 +89,11 @@ class SearchHit(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     snippet: str
+    # Current FCC ULS license status (additive, optional): raw code + human
+    # label via the in-memory snapshot; both null when the callsign is not
+    # in ULS (historical-only calls).
+    status: Optional[str] = None
+    status_label: Optional[str] = None
 
 
 class FacetYear(BaseModel):
@@ -296,6 +301,8 @@ def _uls_hit(callsign: str) -> Optional[SearchHit]:
         city=None,
         state=None,
         snippet=snippet,
+        status=rec.status,
+        status_label=rec.status_label,
     )
 
 
@@ -462,6 +469,10 @@ def search(
         "city":            "city",
     }.get(intent, "name")
     for r in hit_rows:
+        # O(1) in-memory ULS snapshot lookup per hit (<= `limit` per request)
+        # so every hit carries its current license status alongside the
+        # printed-edition row. Null status = not in ULS (historical-only).
+        uls_rec = fcc_uls.lookup(r["callsign"]) if r["callsign"] else None
         hits.append(
             SearchHit(
                 kind=hit_kind,
@@ -473,6 +484,8 @@ def search(
                 city=r["city"],
                 state=r["state"],
                 snippet=r["snippet"] or "",
+                status=uls_rec.status if uls_rec else None,
+                status_label=uls_rec.status_label if uls_rec else None,
             )
         )
 
