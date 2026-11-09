@@ -1,7 +1,7 @@
 # USA Ham Callbook Archive
 
 U.S. amateur radio license records, **1909 to present** — a searchable
-public archive of **7.38 million historic records** across 92 published
+public archive of **12.29 million historic records** across 92 published
 callbook editions (1909–1997 + 2003), fused with **1.59 million current FCC
 licenses** refreshed weekly from the FCC's Universal Licensing System.
 
@@ -9,8 +9,14 @@ Look up any callsign and see a century of its history: the printed-callbook
 paper trail through the 20th century, then the live FCC record — current
 holder, license status, operator lineage — up to this week.
 
-**1,300,794 distinct historic callsigns. 14,339 detected radio clubs. Every
+**1,671,799 distinct historic callsigns. 14,966 detected radio clubs. Every
 entry traceable to its source.**
+
+**Project status:** the archive holds **61.5 %** of the ~20 million entries a
+complete set of these callbooks would contain — 26 editions complete, 2 being
+read, 64 partial, 9 not yet transcribed. Completeness by edition is in
+**[STATUS.md](STATUS.md)**; where the transcription work stopped and how to pick
+it up is in **[docs/RESUME.md](docs/RESUME.md)**.
 
 ## What you can do
 
@@ -25,7 +31,7 @@ entry traceable to its source.**
   Minnesota, Missouri, Nebraska, the Dakotas, Colorado) and the 1928
   W-prefix addition are linked automatically: W0QQQ shows its pre-1947
   identity as W9QQQ
-- **Club search** — 14,339 radio clubs detected across the corpus, with
+- **Club search** — 14,966 radio clubs detected across the corpus, with
   multi-callsign timelines (a university club's calls across 60 years)
 - **Full-text search** (SQLite FTS5, BM25-ranked) across names, callsigns,
   cities
@@ -43,7 +49,7 @@ the work, so here is exactly where the data comes from and how good it is.
 
 | Source | Coverage | What it provides |
 |---|---|---|
-| [leehite.org/callbooks](https://leehite.org/callbooks/) + archive.org | 1909–1997 | Scanned PDFs of 92 callbook editions |
+| [leehite.org/callbooks](https://leehite.org/callbooks/) + archive.org | 1909–1997 | Scanned PDFs of 101 catalogued callbook editions (92 transcribed so far) |
 | FCC ULS weekly dump (`l_amat.zip`) | 1997–**present** (refreshed weekly) | 1.59M current licenses — holder, status, grant dates, previous callsigns, full license history |
 | ISO QSL-manager CDs | 1999, 2003 | International QSL routing records |
 
@@ -60,6 +66,14 @@ the work, so here is exactly where the data comes from and how good it is.
    corrections applied via a reviewable overrides file
 4. Name and city dictionaries (built from 1.6M FCC records) repair common
    OCR substitutions (`Lamb8rt`→`Lambert`, `~Ianhattan`→`Manhattan`)
+5. **Vision-model re-reads (2026).** Editions the first pass under-captured are
+   re-read column by column by vision models — Gemini 3.7 Flash / 3.1 Pro,
+   GPT-6-Sol, Claude Sonnet — benchmarked against a blind-adjudicated truth set
+   (99.6 % field accuracy on dense 1990s print). A batch is banked only through
+   gates: per-page alignment against the FCC holder of each callsign, ZIP↔state
+   consistency, call-district checks before 1978. Every batch carries its own
+   flag and a backup of what it changed, so it can be reversed. Details:
+   [docs/RESUME.md](docs/RESUME.md)
 
 **Honest numbers — per field, not one headline**
 
@@ -69,9 +83,9 @@ trustworthy they are. Live coverage (`GET /api/stats/integrity` →
 
 | Field | Populated & valid | Notes |
 |---|---|---|
-| **Name** | **~99.3%** | The highest-trust field; ~96–99% verified correct on sample-audited editions |
-| **City** | **~92.0%** | Address-bleed and ZIP-as-city mis-parses neutralised to blank rather than shown wrong |
-| **State** | **~67.4%** | The hard field — dense 1960s printings omit state per line; see recovery policy below |
+| **Name** | **~99.4%** | The highest-trust field; ~96–99% verified correct on sample-audited editions |
+| **City** | **~86.0%** | Address-bleed and ZIP-as-city mis-parses neutralised to blank rather than shown wrong |
+| **State** | **~86.3%** | Dense 1960s printings omit state per line; the 2026 re-reads carry each entry's printed state — see recovery policy below |
 
 **State recovery policy (trust over coverage).** Missing state is recovered
 **only** from each entry's *own* OCR text (the trailing state token), and only
@@ -103,7 +117,7 @@ the overrides file and survive every rebuild.
                  +-----------+        read-only mount   in-memory
                  |  Next.js  |             |                |
                  |  15 SSR   |     USA_Ham_Callbooks   uls.json (185MB)
-                 | (:3000 in |      .sqlite (2.7GB)    uls_history.json
+                 | (:3000 in |      .sqlite (4.6GB)    uls_history.json
                  | container)|      FTS5 + 25 tables       (36MB)
                  +-----------+
 ```
@@ -124,10 +138,10 @@ Container Registry (`ghcr.io/atvriders/ham-callbook-*`, the compose default)
 and to the Gitea registry. The GHCR images are public, so no `docker login` is
 needed to pull them.
 
-**Self-contained — no manual data handling.** The ~3.8 GB archive data is not
-in git or the images (the DB alone is 4.2 GB), so a one-shot `data-init`
+**Self-contained — no manual data handling.** The ~5 GB archive data is not
+in git or the images (the DB alone is 4.6 GB), so a one-shot `data-init`
 service downloads it from a pinned data release (default
-[`data-v10`](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v10))
+[`data-v11`](https://github.com/Atvriders/ham-callbook-site/releases/tag/data-v11))
 into the `app_data` named volume on the first `up`. It records which release
 filled the volume (a `.data_base` marker), so subsequent runs skip the
 download — and bumping `DATA_TAG` (e.g. `DATA_TAG=data-v4`) to point at a newer
@@ -138,7 +152,7 @@ git clone https://github.com/Atvriders/ham-callbook-site
 cd ham-callbook-site
 
 docker compose up -d
-# First run downloads ~1.8 GB (DB + artifacts) into the app_data volume,
+# First run downloads ~1.9 GB (DB + artifacts) into the app_data volume,
 # then the stack starts. Watch it:  docker compose logs -f data-init
 # Site at http://<host>:3017        (override: SITE_PORT=80 docker compose up -d)
 
@@ -157,7 +171,7 @@ SQLite must create its `-wal`/`-shm` sidecars (a read-only dir forbids that).
 
 **Baked-in data (all-in-one).** Prefer a single self-contained image with no
 download step or data volume? Use the `ham-callbook-backend-full` image (DB +
-artifacts baked in, ~3 GB) via the baked compose:
+artifacts baked in, ~5 GB) via the baked compose:
 
 ```bash
 docker compose -f docker-compose.baked.yml up -d
@@ -228,6 +242,14 @@ FCC l_amat.zip ─────────┘        │  (chains build_data_lay
 Sundays), rebuilds `uls.json` + `uls_history.json`, and restarts the backend
 — keeping "current FCC status" genuinely current.
 
+Since 2026 the gaps left by the first OCR pass are filled by **vision-model
+re-reads banked into the live database through quality gates** — each batch is
+appended to `entries/*.csv` (new rows) and `entries_overrides.csv`
+(corrections) as well, so a full rebuild reproduces it. How that works, the
+reader benchmarks and the exact pages still to read: [docs/RESUME.md](docs/RESUME.md).
+`scripts/build_status.py` regenerates [STATUS.md](STATUS.md) and
+`docs/completeness.csv` from the database after each banking.
+
 ## Design — "Sodium Vapor"
 
 The visual direction is **not** generic dark-mode SaaS. It evokes vintage CRT
@@ -254,9 +276,14 @@ backend/            FastAPI app (routes/, integrations/ for ULS·PSK·RBN·clubs
 frontend/           Next.js 15 App Router, Sodium Vapor design system
 caddy/              Caddyfile (baked into the caddy image)
 scripts/            build_data_layer.py · build_clubs.py ·
-                    build_uls_history.py · uls_refresh.sh
+                    build_uls_history.py · uls_refresh.sh ·
+                    build_status.py (STATUS.md + docs/completeness.csv)
+docs/               RESUME.md (where the work stopped, how to continue) ·
+                    wip.json (in-progress state) · completeness.csv
+STATUS.md           completeness by edition and era (generated)
 data/               (gitignored) sqlite + uls.json + uls_history.json
-.gitea/workflows/   CI: builds + pushes the three images on every master push
+.github/workflows/  CI: builds + pushes the images to GHCR on every master push
+.gitea/workflows/   CI mirror for the Gitea registry
 ```
 
 ## Credits & sources

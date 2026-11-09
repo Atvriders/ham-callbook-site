@@ -1,6 +1,6 @@
 # Backend image with the archive DB + artifacts BAKED IN at /data — fully
 # self-contained, needs no data-init service and no data volume. Heavier
-# (~3 GB image), and a backend code change means re-pulling the whole image;
+# (~5 GB image), and a backend code change means re-pulling the whole image;
 # prefer the lean ./Dockerfile + a data mount/auto-download if that matters.
 #
 # Keep this in sync with ./Dockerfile (same base + deps). The data layer is
@@ -23,15 +23,16 @@ COPY requirements.txt /srv/requirements.txt
 RUN pip install --no-cache-dir -r /srv/requirements.txt
 
 # Create the runtime user BEFORE baking data, so the data layer can be chowned
-# in place. Chowning /data in a later layer would copy all ~2.6 GB up into a
+# in place. Chowning /data in a later layer would copy all ~5 GB up into a
 # second layer (doubling the image).
 RUN useradd --system --uid 1001 --home /srv --shell /usr/sbin/nologin app
 
 # ---- DATA (stable, cache-friendly layer) -------------------------------------
-# Pulled from the data-v1 release at build time (it is too big for git). Bump
-# DATA_TAG to bake a newer dataset. Kept above COPY app so editing code reuses
-# this layer from cache instead of re-downloading ~1.3 GB.
-ARG DATA_TAG=data-v1
+# Pulled from a data release at build time (it is too big for git). Bump
+# DATA_TAG together with docker-compose.yml's default to bake a newer dataset.
+# Kept above COPY app so editing code reuses this layer from cache instead of
+# re-downloading ~1.9 GB.
+ARG DATA_TAG=data-v11
 ARG DATA_BASE=https://github.com/Atvriders/ham-callbook-site/releases/download/${DATA_TAG}
 RUN set -eux; \
     mkdir -p /data; cd /data; \

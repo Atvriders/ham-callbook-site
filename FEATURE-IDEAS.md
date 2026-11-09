@@ -54,7 +54,7 @@ links onto the existing FCC lineage so a chain can run 1958→2026.
   identity graph, and retroactively upgrades nearly every other feature (cohort
   survival, migration, GEDCOM, heritage narratives) from callsign-level to
   person-level.
-- **Data:** Entirely existing: 7.38M entries with name/address/year, distinct-holder
+- **Data:** Entirely existing: 12.3M entries with name/address/year, distinct-holder
   clusters, and 271K FCC vanity chains that double as a labeled validation set for
   precision/recall. Blocking on (state, soundex(surname)) keeps the pairwise space
   tractable. Reuses rank 1's address normalization.
@@ -101,7 +101,7 @@ flow with era sliders.
 - **Why:** Genealogists arrive with a NAME, not a callsign, and exact-match FTS
   misses "Robt. E. Kowalski". Biggest unlock for name-first discovery; prerequisite
   index for the GEDCOM tree scan (rank 15).
-- **Data:** Entirely existing 7.38M name fields. Build: offline pass adding
+- **Data:** Entirely existing 12.3M name fields. Build: offline pass adding
   phonetic-key columns to SQLite, a curated few-hundred-entry nickname/abbreviation
   dictionary (standard genealogy lists exist), one new endpoint + results UI.
 - **Originality:** No callbook resource does phonetic or abbreviation-normalized
@@ -183,7 +183,7 @@ dictionary-implausible names). Adopt-an-edition progress bars, contributor credi
 on the integrity page, Match/Fix/Skip verification against scan crops once rank 7
 lands.
 
-- **Why:** 7.38M OCR records can't be hand-verified by one maintainer; this is the
+- **Why:** 12.3M OCR records can't be hand-verified by one maintainer; this is the
   proven FamilySearch/Zooniverse model aimed at the ideal volunteer demographic
   (retired, detail-oriented, nostalgic hams). Active-learning targeting spends
   scarce human labels exactly where the pipeline is least certain — a community

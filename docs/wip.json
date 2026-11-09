@@ -1,0 +1,29 @@
+{
+  "as_of": "2026-11-07",
+  "summary": "Vision-OCR of the two largest modern gaps, **Winter 1995** and **Winter 1996**, ran 24 Sep – 7 Oct 2026 on subscription quota (Gemini via the Antigravity CLI, GPT-6-Sol via the Codex CLI) and then stopped: the runner processes were killed while paused for a quota reset. Everything read so far was banked on 7 Nov 2026 (**+664,418 entries, 273,068 existing rows corrected**). **831 PDF pages remain** across the two editions — about one week of both subscriptions' quota at the measured rate (~700 + ~380 pages/week).",
+  "editions": [
+    {
+      "year": 1995,
+      "label": "Winter",
+      "read": "PDF p3–1279 · 1,256 pages banked (5 held as misaligned reads)",
+      "remaining": "**1280–1816** + 75–76, 103, 204, 329, 363, 367, 438, 453, 496, 559, 561, 580, 678, 765, 924, 1043–1044, 1051, 1061, 1163 (558 pages)",
+      "reader": "Gemini 3.7 Flash Medium",
+      "banked": "2026-11-07 · flag `agy_1995`"
+    },
+    {
+      "year": 1996,
+      "label": "Winter",
+      "read": "PDF p1–752 (Azure Read, reduced resolution) · p753–1644 (GPT-6-Sol low) · 1 page held",
+      "remaining": "**1645–1912** + 1286, 1288, 1398, 1420, 1604 (273 pages)",
+      "reader": "GPT-6-Sol low; Azure Read",
+      "banked": "2026-11-07 · flags `sol_1996`, `azure_1996`"
+    }
+  ],
+  "next_steps": [
+    "Finish Winter 1995 (558 pages) and Winter 1996 (273 pages) with the same readers and bank them through the same gates.",
+    "Second-read the Winter 1996 GPT-6-Sol pages (PDF p753–1644) with Gemini to catch its ~7 % one-character slips, and re-read PDF p1–752, which Azure read at reduced resolution (no ZIP column, state often blank).",
+    "Adjudicate the 39,305 shared callsigns where the old row and the new read disagree and the FCC record cannot referee (kept as-is for now).",
+    "Then the next-largest gaps (see *Largest gaps* below) — their source scans have to be re-downloaded and rendered first.",
+    "Small known fix: 23 Spring 1935 Hawaii/Guam calls printed K6 are stored as W6."
+  ]
+}
